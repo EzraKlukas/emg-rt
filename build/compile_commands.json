@@ -1,0 +1,8 @@
+[
+{
+  "directory": "/home/ezraklukas/Documents/arbeit/ubckin/notes/ezra/resources/emg-rt/build",
+  "command": "/usr/bin/c++ -I/home/ezraklukas/Documents/arbeit/ubckin/notes/ezra/resources/emg-rt/include -std=gnu++20 -Wall -Wextra -Wpedantic -g -o CMakeFiles/emg-rt.dir/src/main.cpp.o -c /home/ezraklukas/Documents/arbeit/ubckin/notes/ezra/resources/emg-rt/src/main.cpp",
+  "file": "/home/ezraklukas/Documents/arbeit/ubckin/notes/ezra/resources/emg-rt/src/main.cpp",
+  "output": "/home/ezraklukas/Documents/arbeit/ubckin/notes/ezra/resources/emg-rt/build/CMakeFiles/emg-rt.dir/src/main.cpp.o"
+}
+]
