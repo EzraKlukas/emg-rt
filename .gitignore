@@ -6,3 +6,8 @@ out/
 # C/C++ tooling and language server configurations
 .clangd/
 compile_commands.json
+
+# Online Paramater Related
+offline_params/
+*.bin
+*.yaml

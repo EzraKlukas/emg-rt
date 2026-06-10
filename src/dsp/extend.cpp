@@ -11,14 +11,20 @@
 // Output: void
 //******************************************************************************
 
+#include "emg-rt/dsp/extend.h"
+
 #include <cassert>
+#include <cstdint>
 #include <mdspan>
 
-void extend(std::mdspan<float, std::dextents<std::size_t, 2>> &ext_signal,
-            std::mdspan<float, std::dextents<std::size_t, 2>> &signal,
-            std::size_t ex_factor) {
+#define MS_PER_S 1000
+
+void extend(std::mdspan<float, std::dextents<std::size_t, 2>> ext_signal,
+            std::mdspan<float, std::dextents<std::size_t, 2>> signal,
+            const uint_fast16_t extension_t_ms, const uint_fast16_t f_samp) {
   std::size_t channels = signal.extent(0);
   std::size_t samples = signal.extent(1);
+  std::size_t ex_factor = (extension_t_ms * f_samp) / MS_PER_S;
 
   assert(ext_signal.extent(0) == channels * ex_factor);
   assert(ext_signal.extent(1) == samples + ex_factor);

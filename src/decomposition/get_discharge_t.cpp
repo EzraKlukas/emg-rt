@@ -16,13 +16,15 @@
 // Output: void
 //******************************************************************************
 
+#include "emg-rt/decomposition/get_discharge_t.h"
+
 #include <cassert>
 #include <cstdlib>
 #include <mdspan>
 #include <vector>
 
 void get_distime(
-    std::vector<std::vector<std::size_t>> discharge_times,
+    std::vector<std::vector<std::size_t>> &discharge_times,
     const std::mdspan<float, std::dextents<std::size_t, 2>> pulse_t,
     const std::mdspan<bool, std::dextents<std::size_t, 2>> spikes,
     const std::vector<float> &noise_centroids,

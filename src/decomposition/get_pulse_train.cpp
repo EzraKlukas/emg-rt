@@ -12,15 +12,17 @@
 // Output: void
 //******************************************************************************
 
+#include "emg-rt/decomposition/get_pulse_train.h"
+
 #include <cassert>
 #include <cstdlib>
 #include <mdspan>
 
 void get_pulse_train(
-    std::mdspan<float, std::dextents<std::size_t, 2>> &pulse_t,
-    std::mdspan<float, std::dextents<std::size_t, 2>> &emg_buffer,
-    std::mdspan<float, std::dextents<std::size_t, 2>> &mu_filters,
-    std::mdspan<float, std::dextents<std::size_t, 1>> &norm) {
+    std::mdspan<float, std::dextents<std::size_t, 2>> pulse_t,
+    const std::mdspan<float, std::dextents<std::size_t, 2>> emg_buffer,
+    const std::mdspan<float, std::dextents<std::size_t, 2>> mu_filters,
+    const std::mdspan<float, std::dextents<std::size_t, 1>> norm) {
   std::size_t filters = mu_filters.extent(0);
   std::size_t samples = emg_buffer.extent(1);
   std::size_t extended_channels = emg_buffer.extent(0);

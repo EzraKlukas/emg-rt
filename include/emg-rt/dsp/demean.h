@@ -3,6 +3,6 @@
 
 #include <mdspan>
 
-void demean(std::mdspan<float, std::dextents<std::size_t, 2>> &signal);
+void demean(std::mdspan<float, std::dextents<std::size_t, 2>> signal);
 
 #endif

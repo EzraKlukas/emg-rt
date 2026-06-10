@@ -9,13 +9,15 @@
 // Output: void
 //******************************************************************************
 
+#include "emg-rt/decomposition/is_local_max.h"
+
 #include <cassert>
 #include <mdspan>
 #include <optional>
 
-void islocalmax(std::mdspan<float, std::dextents<std::size_t, 2>> &src,
-                std::mdspan<bool, std::dextents<std::size_t, 2>> &dst,
-                std::size_t min_peak_distance = 1) {
+void islocalmax(const std::mdspan<float, std::dextents<std::size_t, 2>> src,
+                std::mdspan<bool, std::dextents<std::size_t, 2>> dst,
+                const std::size_t min_peak_distance = 1) {
   std::size_t rows = src.extent(0);
   std::size_t cols = src.extent(1);
 
