@@ -10,10 +10,13 @@
 //******************************************************************************
 
 #include "emg-rt/dsp/demean.h"
+#include "emg-rt/utils/types.h"
 
 #include <mdspan>
 
-void demean(std::mdspan<float, std::dextents<std::size_t, 2>> signal) {
+using namespace emg_rt;
+
+void demean(MatrixView<float> signal) {
   std::size_t channels = signal.extent(0);
   std::size_t samples = signal.extent(1);
   float mean = 0.0;

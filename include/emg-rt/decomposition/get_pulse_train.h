@@ -1,12 +1,11 @@
 #ifndef PULSET_H
 #define PULSET_H
 
-#include <mdspan>
+#include "emg-rt/utils/types.h"
 
-void get_pulse_train(
-    std::mdspan<float, std::dextents<std::size_t, 2>> pulse_t,
-    std::mdspan<float, std::dextents<std::size_t, 2>> emg_buffer,
-    std::mdspan<float, std::dextents<std::size_t, 2>> mu_filters,
-    std::mdspan<float, std::dextents<std::size_t, 1>> norm);
+void get_pulse_train(emg_rt::MatrixView<float> pulse_t,
+                     emg_rt::ConstMatrixView<float> emg_buffer,
+                     emg_rt::ConstMatrixView<float> mu_filters,
+                     emg_rt::ConstVectorView<float> norm);
 
 #endif

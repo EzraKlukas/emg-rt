@@ -1,8 +1,8 @@
 #ifndef DEMEAN_H
 #define DEMEAN_H
 
-#include <mdspan>
+#include "emg-rt/utils/types.h"
 
-void demean(std::mdspan<float, std::dextents<std::size_t, 2>> signal);
+void demean(emg_rt::MatrixView<float> signal);
 
 #endif

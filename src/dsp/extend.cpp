@@ -12,6 +12,7 @@
 //******************************************************************************
 
 #include "emg-rt/dsp/extend.h"
+#include "emg-rt/utils/types.h"
 
 #include <cassert>
 #include <cstdint>
@@ -19,9 +20,10 @@
 
 #define MS_PER_S 1000
 
-void extend(std::mdspan<float, std::dextents<std::size_t, 2>> ext_signal,
-            std::mdspan<float, std::dextents<std::size_t, 2>> signal,
-            const uint_fast16_t extension_t_ms, const uint_fast16_t f_samp) {
+using namespace emg_rt;
+
+void extend(MatrixView<float> ext_signal, ConstMatrixView<float> signal,
+            uint_fast16_t extension_t_ms, uint_fast16_t f_samp) {
   std::size_t channels = signal.extent(0);
   std::size_t samples = signal.extent(1);
   std::size_t ex_factor = (extension_t_ms * f_samp) / MS_PER_S;
