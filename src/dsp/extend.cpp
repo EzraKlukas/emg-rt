@@ -31,6 +31,7 @@ void extend(MatrixView<float> ext_signal, ConstMatrixView<float> signal,
   assert(ext_signal.extent(0) == channels * ex_factor);
   assert(ext_signal.extent(1) == samples + ex_factor);
 
+  // Note we're over-writing ext_signal from last window.
   for (std::size_t block = 0; block < ex_factor; block++) {
     for (std::size_t channel = 0; channel < channels; channel++) {
       for (std::size_t sample = 0; sample < samples; sample++) {

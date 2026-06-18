@@ -9,6 +9,25 @@
 #include <string>
 #include <vector>
 
+// defining bounds on decomposition parameters (test / check sensibility later)
+#define WINDOW_SIZE_MAX 1000
+#define WINDOW_SIZE_MIN 50
+#define DECOMPOSITION_FREQUENCY_MAX 2000
+#define DECOMPOSITION_FREQUENCY_MIN 100 // not sure what should go into this?
+
+template <typename T> struct RaggedArray {
+  std::vector<T> data;
+  std::vector<size_t> offsets;
+
+  T operator()(std::size_t row, std::size_t col) {
+    return data[offsets[row] + col];
+  }
+
+  T operator()(std::size_t row, std::size_t col) const {
+    return data[offsets[row] + col];
+  }
+};
+
 struct GridDecompositionParams {
   uint8_t grid_id;
   std::vector<std::size_t> active_channels;
@@ -66,29 +85,71 @@ struct GridDecompositionParams {
     };
   }
 
-  void validate_dimensions() const {
-    if (mu_filters.size() != num_filters * num_extended_channels) {
-      throw std::runtime_error(std::format(
-          "mu_filters size, {} does not match expected shape, {} by {}",
-          mu_filters.size(), num_filters, num_extended_channels));
-    }
+  /*
+    void validate_dimensions() const {
+      if (mu_filters.size() != num_filters * num_extended_channels) {
+        throw std::runtime_error(std::format(
+            "mu_filters size, {} does not match expected shape, {} by {}",
+            mu_filters.size(), num_filters, num_extended_channels));
+      }
 
-    if (centroids.size() != num_filters * 2) {
-      throw std::runtime_error("centroids size does not match expected shape");
-    }
+      if (centroids.size() != num_filters * 2) {
+        throw std::runtime_error("centroids size does not match expected
+    shape");
+      }
 
-    if (filter_norms.size() != num_filters) {
-      throw std::runtime_error("filter_norms size does not match num_filters");
+      if (filter_norms.size() != num_filters) {
+        throw std::runtime_error("filter_norms size does not match
+    num_filters");
+      }
     }
-  }
+    */
 };
 
 struct DecompositionParams {
   float sampling_frequency;
-  std::uint_fast16_t number_extended_channels;
+  std::size_t num_extended_channels;
   float min_peak_dist_factor;
+  float decomposition_frequency;
+  std::size_t window_size;
 
   std::vector<GridDecompositionParams> grids;
+
+  void validate_dimensions() const {
+    for (GridDecompositionParams grid : grids) {
+      if (grid.mu_filters.size() !=
+          grid.num_filters * grid.num_extended_channels) {
+        throw std::runtime_error(std::format(
+            "mu_filters size, {} does not match expected shape, {} by {}",
+            grid.mu_filters.size(), grid.num_filters,
+            grid.num_extended_channels));
+      }
+
+      if (grid.centroids.size() != grid.num_filters * 2) {
+        throw std::runtime_error(
+            "centroids size does not match expected shape");
+      }
+
+      if (grid.filter_norms.size() != grid.num_filters) {
+        throw std::runtime_error(
+            "filter_norms size does not match num_filters");
+      }
+    }
+    if (decomposition_frequency > DECOMPOSITION_FREQUENCY_MAX ||
+        decomposition_frequency < DECOMPOSITION_FREQUENCY_MIN) {
+      throw std::runtime_error(std::format(
+          "decomposition_frequency out of acceptable bounds, must be between "
+          "{} and {} Hz.",
+          DECOMPOSITION_FREQUENCY_MIN, DECOMPOSITION_FREQUENCY_MAX));
+    }
+
+    if (window_size > WINDOW_SIZE_MAX || window_size < WINDOW_SIZE_MIN) {
+      throw std::runtime_error(
+          std::format("window_size out of acceptable bounds, must be "
+                      "between {} and {} samples.",
+                      WINDOW_SIZE_MIN, WINDOW_SIZE_MAX));
+    }
+  }
 };
 
 DecompositionParams get_online_params(const std::string &path_to_yaml);

@@ -14,5 +14,8 @@ const std::string path_to_yaml = "offline_params/decomposition_config.yaml";
 int main() {
   DecompositionParams config_params = get_online_params(path_to_yaml);
   config_params.grids[0].validate_dimensions();
-  std::cout << format_online_params(config_params) << std::flush;
+  // std::cout << format_online_params(config_params) << std::flush;
+
+  // have decomposition function / external file with function that essentially
+  // contains the getonlinespikes function essentially.
 }

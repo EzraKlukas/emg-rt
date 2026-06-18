@@ -91,6 +91,9 @@ DecompositionParams get_online_params(const std::string &path_to_yaml) {
         config["number_extended_channels"].as<uint_fast16_t>();
     online_params.min_peak_dist_factor =
         config["min_peak_dist_factor"].as<float>();
+    online_params.decomposition_frequency =
+        config["decomposition_frequency"].as<float>();
+    online_params.window_size = config["window_size"].as<std::size_t>();
 
     YAML::Node grids = config["grids"];
 
@@ -141,10 +144,14 @@ std::string format_online_params(const DecompositionParams &decomp_params) {
 
   formatted_params +=
       std::format("Sampling frequency: {}\n", decomp_params.sampling_frequency);
-  formatted_params += std::format("number_extended_channels: {}\n",
-                                  decomp_params.number_extended_channels);
-  formatted_params += std::format("min_peak_dist_factor: {}\n\n",
+  formatted_params += std::format("num_extended_channels: {}\n",
+                                  decomp_params.num_extended_channels);
+  formatted_params += std::format("min_peak_dist_factor: {}\n",
                                   decomp_params.min_peak_dist_factor);
+  formatted_params += std::format("decomposition_frequency: {}\n",
+                                  decomp_params.decomposition_frequency);
+  formatted_params +=
+      std::format("window_size: {}\n\n", decomp_params.window_size);
 
   for (const auto &grid : decomp_params.grids) {
     formatted_params += std::format("grid_id: {}\n", grid.grid_id);
@@ -156,8 +163,8 @@ std::string format_online_params(const DecompositionParams &decomp_params) {
                                     format_matrix(grid.centroids_view()));
     formatted_params += std::format("Filter norms: {}\n",
                                     format_vector(grid.filter_norms_view()));
-    // formatted_params += std::format("Motor Unit Filters: {}\n",
-    //                               format_matrix(grid.mu_filters_view()));
+    formatted_params += std::format("Motor Unit Filters: {}\n",
+                                    format_matrix(grid.mu_filters_view()));
   }
 
   return formatted_params;

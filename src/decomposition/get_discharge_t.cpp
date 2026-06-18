@@ -17,6 +17,7 @@
 //******************************************************************************
 
 #include "emg-rt/decomposition/get_discharge_t.h"
+#include "emg-rt/config/decomposition_config.h"
 #include "emg-rt/utils/types.h"
 
 #include <cassert>
@@ -26,20 +27,22 @@
 
 using namespace emg_rt;
 
-void get_distime(std::vector<std::vector<std::size_t>> &discharge_times,
+void get_distime(RaggedArray<std::size_t> &discharge_times,
                  MatrixView<float> pulse_t, MatrixView<float> spikes,
                  ConstVectorView<float> &noise_centroids,
                  ConstVectorView<float> &spike_centroids) {
   std::size_t filters = pulse_t.extent(0);
   std::size_t samples = pulse_t.extent(1);
 
-  assert(discharge_times.size() == filters);
+  assert(discharge_times.offsets.size() - 1 == filters);
   assert(spikes.extent(0) == filters && spikes.extent(1) == samples);
   assert(filters == noise_centroids.size() &&
          filters == spike_centroids.size());
 
-  for (std::size_t filter = 0; filter < filters; filter++) {
-    for (std::size_t sample = 0; sample < samples; sample++) {
+  discharge_times.offsets[0] = 0; // Can I assume and preserve this?
+
+  for (std::size_t filter = 0; filter < filters; ++filter) {
+    for (std::size_t sample = 0; sample < samples; ++sample) {
       const float sample_value =
           pulse_t[filter, sample] * static_cast<float>(spikes[filter, sample]);
 
@@ -47,8 +50,10 @@ void get_distime(std::vector<std::vector<std::size_t>> &discharge_times,
       const float spike_dist = std::abs(sample_value - spike_centroids[filter]);
 
       if (noise_dist > spike_dist) {
-        discharge_times[filter].push_back(sample);
+        discharge_times.data.push_back(sample);
       }
     }
+    discharge_times.offsets[filter + 1] =
+        discharge_times.data.size(); // next filter starts at data[data.size()]
   }
 }

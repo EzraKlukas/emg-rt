@@ -11,3 +11,7 @@ compile_commands.json
 offline_params/
 *.bin
 *.yaml
+
+# codex
+.codex/
+AGENTS.md
