@@ -2,10 +2,9 @@
 #define EXTEND_H
 
 #include "emg-rt/utils/types.h"
-#include <cstdint>
 
-void extend(emg_rt::MatrixView<float> ext_signal,
-            emg_rt::ConstMatrixView<float> signal, uint_fast16_t extension_t_ms,
-            uint_fast16_t f_samp);
+void extend(emg_rt::RingMatrix<float> &ext_signal,
+            emg_rt::RingMatrix<float> &signal, const std::size_t &ex_factor,
+            std::vector<float> &sums, const std::size_t &new_samples);
 
 #endif

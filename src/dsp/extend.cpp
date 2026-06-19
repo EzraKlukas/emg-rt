@@ -15,28 +15,27 @@
 #include "emg-rt/utils/types.h"
 
 #include <cassert>
-#include <cstdint>
-#include <mdspan>
-
-#define MS_PER_S 1000
 
 using namespace emg_rt;
 
-void extend(MatrixView<float> ext_signal, ConstMatrixView<float> signal,
-            uint_fast16_t extension_t_ms, uint_fast16_t f_samp) {
-  std::size_t channels = signal.extent(0);
-  std::size_t samples = signal.extent(1);
-  std::size_t ex_factor = (extension_t_ms * f_samp) / MS_PER_S;
+void extend(RingMatrix<float> &ext_signal, RingMatrix<float> &signal,
+            const std::size_t &ex_factor, std::vector<float> &sums,
+            const std::size_t &new_samples) {
+  std::size_t channels = signal.rows;
+  std::size_t samples = signal.cols;
 
-  assert(ext_signal.extent(0) == channels * ex_factor);
-  assert(ext_signal.extent(1) == samples + ex_factor);
+  assert(ext_signal.rows == channels * ex_factor);
+  assert(ext_signal.cols == samples + ex_factor);
 
-  // Note we're over-writing ext_signal from last window.
-  for (std::size_t block = 0; block < ex_factor; block++) {
-    for (std::size_t channel = 0; channel < channels; channel++) {
-      for (std::size_t sample = 0; sample < samples; sample++) {
-        ext_signal[(block * channels) + channel, sample + block] =
-            signal[channel, sample];
+  for (std::size_t new_sample = 0; new_sample < new_samples; ++new_sample) {
+    for (std::size_t block = 0; block < ex_factor; ++block) {
+      for (std::size_t channel = 0; channel < channels; ++channel) {
+        sums[(block * channels) + channel] -=
+            ext_signal[(block * channels) + channel, new_samples - new_sample];
+        ext_signal[(block * channels) + channel, new_samples - new_sample] =
+            signal[channel, signal.cols - (new_sample + block)];
+        sums[(block * channels) + channel] +=
+            signal[channel, signal.cols - (new_sample + block)];
       }
     }
   }

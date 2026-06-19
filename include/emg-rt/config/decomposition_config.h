@@ -15,19 +15,6 @@
 #define DECOMPOSITION_FREQUENCY_MAX 2000
 #define DECOMPOSITION_FREQUENCY_MIN 100 // not sure what should go into this?
 
-template <typename T> struct RaggedArray {
-  std::vector<T> data;
-  std::vector<size_t> offsets;
-
-  T operator()(std::size_t row, std::size_t col) {
-    return data[offsets[row] + col];
-  }
-
-  T operator()(std::size_t row, std::size_t col) const {
-    return data[offsets[row] + col];
-  }
-};
-
 struct GridDecompositionParams {
   uint8_t grid_id;
   std::vector<std::size_t> active_channels;
@@ -84,26 +71,6 @@ struct GridDecompositionParams {
         filter_norms.size(),
     };
   }
-
-  /*
-    void validate_dimensions() const {
-      if (mu_filters.size() != num_filters * num_extended_channels) {
-        throw std::runtime_error(std::format(
-            "mu_filters size, {} does not match expected shape, {} by {}",
-            mu_filters.size(), num_filters, num_extended_channels));
-      }
-
-      if (centroids.size() != num_filters * 2) {
-        throw std::runtime_error("centroids size does not match expected
-    shape");
-      }
-
-      if (filter_norms.size() != num_filters) {
-        throw std::runtime_error("filter_norms size does not match
-    num_filters");
-      }
-    }
-    */
 };
 
 struct DecompositionParams {

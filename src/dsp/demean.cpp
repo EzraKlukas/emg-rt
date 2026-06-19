@@ -16,18 +16,16 @@
 
 using namespace emg_rt;
 
-void demean(MatrixView<float> signal) {
-  std::size_t channels = signal.extent(0);
-  std::size_t samples = signal.extent(1);
-  float mean = 0.0;
-  for (std::size_t channel = 0; channel < channels; channel++) {
-    float sum = 0.0;
-    for (std::size_t sample = 0; sample < samples; sample++) {
-      sum += signal[channel, sample];
-    }
-    mean = sum / (float)samples;
-    for (std::size_t sample = 0; sample < samples; sample++) {
-      signal[channel, sample] -= mean;
+void demean(emg_rt::RingMatrix<float> ext_signal,
+            const std::size_t &demean_window_size, std::vector<float> &sums,
+            const std::size_t &new_samples) {
+  std::size_t ext_channels = ext_signal.rows;
+  std::size_t samples = ext_signal.cols;
+  for (std::size_t sample = 0; sample < samples; ++sample) {
+    for (std::size_t ext_channel = 0; ext_channel < ext_channels;
+         ++ext_channel) {
+      ext_signal[ext_channel, sample] -=
+          sums[ext_channel] / (float)demean_window_size;
     }
   }
 }
