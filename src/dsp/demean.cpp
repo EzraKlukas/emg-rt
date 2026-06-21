@@ -1,3 +1,8 @@
+#include "emg-rt/dsp/demean.h"
+#include "emg-rt/utils/types.h"
+
+using namespace emg_rt;
+
 //******************************************************************************
 // Removes the mean of a signal.
 //
@@ -9,16 +14,23 @@
 // void
 //******************************************************************************
 
-#include "emg-rt/dsp/demean.h"
-#include "emg-rt/utils/types.h"
+// to run before the first 'initialization' cycle.
+std::vector<float> initial_sums(emg_rt::RingMatrix<float> &signal) {
+  std::vector<float> sums(signal.rows);
 
-#include <mdspan>
+  for (std::size_t col = 0; col < signal.cols; ++col) {
+    for (std::size_t row = 0; row < signal.rows; ++row) {
+      sums[col] += signal[row, col];
+    }
+  }
 
-using namespace emg_rt;
+  return sums;
+}
 
-void demean(emg_rt::RingMatrix<float> ext_signal,
-            const std::size_t &demean_window_size, std::vector<float> &sums,
-            const std::size_t &new_samples) {
+// To run every cycle
+void incremental_demean(emg_rt::RingMatrix<float> &ext_signal,
+                        std::size_t demean_window_size,
+                        std::vector<float> &sums) {
   std::size_t ext_channels = ext_signal.rows;
   std::size_t samples = ext_signal.cols;
   for (std::size_t sample = 0; sample < samples; ++sample) {

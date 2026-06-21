@@ -3,7 +3,7 @@
 
 #include "emg-rt/utils/types.h"
 
-void islocalmax(emg_rt::ConstMatrixView<float> src,
-                emg_rt::MatrixView<bool> dst, std::size_t min_peak_distance);
+void is_local_max(const emg_rt::RingMatrix<float> &src,
+                  emg_rt::RingMatrix<bool> &dst, std::size_t min_peak_distance);
 
 #endif

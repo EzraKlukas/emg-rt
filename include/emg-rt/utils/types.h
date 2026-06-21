@@ -1,7 +1,9 @@
 #ifndef EMG_RT_TYPES_H
 #define EMG_RT_TYPES_H
 
+#include <cstddef>
 #include <mdspan>
+#include <span>
 #include <vector>
 
 /*
@@ -24,19 +26,6 @@ using VectorView = std::mdspan<T, std::dextents<std::size_t, 1>>;
 template <typename T>
 using ConstVectorView = std::mdspan<const T, std::dextents<std::size_t, 1>>;
 
-template <typename T> struct RaggedArray {
-  std::vector<T> data;
-  std::vector<size_t> offsets;
-
-  T operator()(std::size_t row, std::size_t col) {
-    return data[offsets[row] + col];
-  }
-
-  T operator()(std::size_t row, std::size_t col) const {
-    return data[offsets[row] + col];
-  }
-};
-
 template <typename T> struct RingMatrix {
   std::size_t rows;
   std::size_t cols;     // window length
@@ -44,13 +33,16 @@ template <typename T> struct RingMatrix {
 
   std::vector<T> data; // column-major: cols * rows
 
-  RingMatrix(std::size_t r, std::size_t c) : rows(r), cols(c), data(r * c) {}
+  RingMatrix(std::size_t rows, std::size_t cols)
+      : rows(rows), cols(cols), data(rows * cols) {}
 
-  T &operator[](std::size_t row, std::size_t logical_col) {
+  typename std::vector<T>::reference operator[](std::size_t row,
+                                                std::size_t logical_col) {
     return data[(((head + logical_col) % cols) * rows) + row];
   }
 
-  const T &operator[](std::size_t row, std::size_t logical_col) const {
+  typename std::vector<T>::const_reference
+  operator[](std::size_t row, std::size_t logical_col) const {
     return data[(((head + logical_col) % cols) * rows) + row];
   }
 
@@ -58,8 +50,8 @@ template <typename T> struct RingMatrix {
   void push_column(std::span<const T> column) {
     std::size_t write_col = head; // overwrite oldest physical column
 
-    for (std::size_t r = 0; r < rows; ++r) {
-      data[write_col * rows + r] = column[r];
+    for (std::size_t row = 0; row < rows; ++row) {
+      data[(write_col * rows) + row] = column[row];
     }
 
     head = (head + 1) % cols;

@@ -6,10 +6,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(yaml-cpp REQUIRED)
+find_package(doctest REQUIRED)
 
-add_executable(emg-rt
-    src/main.cpp
+enable_testing()
 
+add_library(emg_rt_lib
     src/config/decomposition_config.cpp
 
     src/decomposition/get_discharge_t.cpp
@@ -20,12 +21,27 @@ add_executable(emg-rt
     src/dsp/extend.cpp
 )
 
-target_include_directories(emg-rt PRIVATE
+target_include_directories(emg_rt_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_link_libraries(emg-rt PRIVATE 
+target_link_libraries(emg_rt_lib PRIVATE
     yaml-cpp::yaml-cpp
+)
+
+target_compile_options(emg_rt_lib PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+    -g
+)
+
+add_executable(emg-rt
+    src/main.cpp
+)
+
+target_link_libraries(emg-rt PRIVATE
+    emg_rt_lib
 )
 
 target_compile_options(emg-rt PRIVATE
@@ -34,3 +50,5 @@ target_compile_options(emg-rt PRIVATE
     -Wpedantic
     -g
 )
+
+add_subdirectory(tests)

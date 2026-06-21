@@ -13,23 +13,22 @@
 #include "emg-rt/utils/types.h"
 
 #include <cassert>
-#include <mdspan>
 #include <optional>
 
 using namespace emg_rt;
 
-void islocalmax(ConstMatrixView<float> src, MatrixView<bool> dst,
-                const std::size_t min_peak_distance = 1) {
-  std::size_t rows = src.extent(0);
-  std::size_t cols = src.extent(1);
+void is_local_max(const RingMatrix<float> &src, RingMatrix<bool> &dst,
+                  const std::size_t min_peak_distance) {
+  std::size_t rows = src.rows;
+  std::size_t cols = src.cols;
 
-  assert(rows == dst.extent(0));
-  assert(cols == dst.extent(1));
+  assert(rows == dst.rows);
+  assert(cols == dst.cols);
 
   std::optional<std::size_t> last_maximum_col;
 
-  for (std::size_t row = 0; row < src.extent(0); row++) {
-    for (std::size_t col = 1; col < src.extent(1) - 1; col++) { // no edges
+  for (std::size_t row = 0; row < src.rows; row++) {
+    for (std::size_t col = 1; col < src.cols - 1; col++) { // no edges
       if ((src[row, col] >= src[row, col - 1]) &&
           (src[row, col] >= src[row, col + 1])) {
         if (last_maximum_col.has_value() &&

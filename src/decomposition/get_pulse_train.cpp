@@ -21,13 +21,13 @@
 
 using namespace emg_rt;
 
-void get_pulse_train(MatrixView<float> pulse_t,
-                     ConstMatrixView<float> emg_buffer,
+void get_pulse_train(RingMatrix<float> &pulse_t,
+                     const RingMatrix<float> &emg_buffer,
                      ConstMatrixView<float> mu_filters,
                      ConstVectorView<float> norm) {
   std::size_t filters = mu_filters.extent(0);
-  std::size_t samples = emg_buffer.extent(1);
-  std::size_t extended_channels = emg_buffer.extent(0);
+  std::size_t samples = emg_buffer.cols;
+  std::size_t extended_channels = emg_buffer.rows;
 
   assert(norm.extent(0) == filters);
   assert(mu_filters.extent(1) == extended_channels);

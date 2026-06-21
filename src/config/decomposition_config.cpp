@@ -1,15 +1,19 @@
 // *****************************************************************************
 // Pulls decomposition parameters from .yaml configuration file, including an
 // arbitrary number of grids, pulling denser data from .bin files referenced in
-// .yaml
+// .yaml.
 // *****************************************************************************
-#include "emg-rt/config/decomposition_config.h"
+
+#include "emg-rt/decomposition/online_decomposer.h"
 #include "emg-rt/utils/formatting.h"
 
-#include <cstdint>
+#include <cmath>
+#include <cstddef>
+#include <format>
 #include <fstream>
-#include <iostream>
+#include <sstream>
 #include <stdexcept>
+#include <string>
 #include <vector>
 #include <yaml-cpp/yaml.h>
 
@@ -55,112 +59,217 @@ static std::vector<float> get_vector_from_bin(const std::string &bin_path) {
   return data;
 }
 
-// Purpose: extracts and returns all relevant online decomposition parameters
-// from given .yaml path.
-//
-// inputs:
-// path_to_yaml: the path to the .yaml file containing config parameters
-//
-// outputs:
-// DecompositionParams: struct containing all relevant online decomposition
-// parameters.
-DecompositionParams get_online_params(const std::string &path_to_yaml) {
+static std::string format_size_vector(const std::vector<std::size_t> &values) {
+  std::ostringstream out;
+  out << "[";
+
+  for (std::size_t i = 0; i < values.size(); ++i) {
+    if (i > 0) {
+      out << ", ";
+    }
+
+    out << values[i];
+  }
+
+  out << "]";
+  return out.str();
+}
+
+static OnlineDecompositionConfig parse_online_config(const YAML::Node &config) {
+  if (!config["sampling_frequency"]) {
+    throw std::runtime_error("Missing sampling_frequency");
+  }
+
+  if (!config["num_extended_channels"]) {
+    throw std::runtime_error("Missing num_extended_channels");
+  }
+
+  if (!config["min_peak_dist_factor"]) {
+    throw std::runtime_error("Missing min_peak_dist_factor");
+  }
+
+  if (!config["decomposition_frequency"]) {
+    throw std::runtime_error("Missing decomposition_frequency");
+  }
+
+  if (!config["demean_window_size"]) {
+    throw std::runtime_error("Missing demean_window_size");
+  }
+
+  OnlineDecompositionConfig online_config;
+
+  online_config.sampling_frequency = config["sampling_frequency"].as<float>();
+  online_config.decomposition_frequency =
+      config["decomposition_frequency"].as<float>();
+  online_config.demean_window_size =
+      config["demean_window_size"].as<std::size_t>();
+  online_config.tgt_ext_channels =
+      config["num_extended_channels"].as<std::size_t>();
+
+  online_config.samples_per_cycle = static_cast<std::size_t>(
+      std::round(online_config.sampling_frequency /
+                 online_config.decomposition_frequency));
+
+  online_config.min_peak_distance = static_cast<std::size_t>(
+      std::round(config["min_peak_dist_factor"].as<float>() *
+                 online_config.sampling_frequency));
+
+  online_config.validate();
+  return online_config;
+}
+
+static void split_centroids(const std::vector<float> &centroids,
+                            std::size_t num_filters,
+                            std::vector<float> &noise_centroids,
+                            std::vector<float> &spike_centroids) {
+  if (centroids.size() != 2 * num_filters) {
+    throw std::runtime_error(std::format(
+        "centroids size {} does not match expected size 2 * num_filters = {}",
+        centroids.size(), 2 * num_filters));
+  }
+
+  noise_centroids.assign(centroids.begin(),
+                         centroids.begin() + (long)num_filters);
+  spike_centroids.assign(centroids.begin() + (long)num_filters,
+                         centroids.end());
+}
+
+MultiGridDecomposer load_online_decomposer(const std::string &path_to_yaml) {
   try {
     YAML::Node config = YAML::LoadFile(path_to_yaml);
-
-    if (!config["sampling_frequency"]) {
-      throw std::runtime_error("Missing sampling_frequency");
-    }
-
-    if (!config["number_extended_channels"]) {
-      throw std::runtime_error("Missing number_extended_channels");
-    }
-
-    if (!config["min_peak_dist_factor"]) {
-      throw std::runtime_error("Missing min_peak_dist_factor");
-    }
 
     if (!config["grids"]) {
       throw std::runtime_error("Missing grids");
     }
 
-    DecompositionParams online_params;
+    const OnlineDecompositionConfig online_config = parse_online_config(config);
 
-    online_params.sampling_frequency = config["sampling_frequency"].as<float>();
-    online_params.number_extended_channels =
-        config["number_extended_channels"].as<uint_fast16_t>();
-    online_params.min_peak_dist_factor =
-        config["min_peak_dist_factor"].as<float>();
-    online_params.decomposition_frequency =
-        config["decomposition_frequency"].as<float>();
-    online_params.window_size = config["window_size"].as<std::size_t>();
+    YAML::Node grids_node = config["grids"];
 
-    YAML::Node grids = config["grids"];
-
-    if (!grids || !grids.IsSequence()) {
-      throw std::runtime_error("'grids' must be a YAML list.\n");
+    if (!grids_node || !grids_node.IsSequence()) {
+      throw std::runtime_error("'grids' must be a YAML list.");
     }
 
-    for (const YAML::Node &grid_node : grids) {
-      GridDecompositionParams grid;
+    std::vector<GridDecomposer> grids;
+    grids.reserve(grids_node.size());
 
-      grid.grid_id = grid_node["grid_id"].as<uint8_t>();
+    for (const YAML::Node &grid_node : grids_node) {
+      const std::size_t grid_id = grid_node["grid_id"].as<std::size_t>();
 
-      grid.active_channels =
+      std::vector<std::size_t> active_channels =
           grid_node["active_channels"].as<std::vector<std::size_t>>();
 
-      std::string mu_filters_path =
+      const std::string mu_filters_path =
           grid_node["mu_filters_path"].as<std::string>();
-      std::string centroids_path =
-          grid_node["centroids_path"].as<std::string>();
-      std::string filter_norms_path =
+      const std::string filter_norms_path =
           grid_node["filter_norms_path"].as<std::string>();
 
-      // here call function that scrapes relevant binary
-      grid.mu_filters = get_vector_from_bin(mu_filters_path);
-      grid.centroids = get_vector_from_bin(centroids_path);
-      grid.filter_norms = get_vector_from_bin(filter_norms_path);
+      std::vector<float> mu_filters = get_vector_from_bin(mu_filters_path);
+      std::vector<float> filter_norms = get_vector_from_bin(filter_norms_path);
 
-      grid.num_filters = grid.filter_norms.size();
-      grid.num_extended_channels = grid.mu_filters.size() / grid.num_filters;
+      const std::size_t num_filters = filter_norms.size();
 
-      online_params.grids.push_back(grid);
+      if (num_filters == 0) {
+        throw std::runtime_error(
+            std::format("Grid {} has zero filters", grid_id));
+      }
+
+      if (mu_filters.size() % num_filters != 0) {
+        throw std::runtime_error(std::format(
+            "Grid {} mu_filters size {} is not divisible by num_filters {}",
+            grid_id, mu_filters.size(), num_filters));
+      }
+
+      const std::size_t num_extended_channels = mu_filters.size() / num_filters;
+
+      if (active_channels.empty()) {
+        throw std::runtime_error(
+            std::format("Grid {} has no active channels", grid_id));
+      }
+
+      if (num_extended_channels % active_channels.size() != 0) {
+        throw std::runtime_error(std::format(
+            "Grid {} num_extended_channels {} is not divisible by "
+            "active_channels size {}",
+            grid_id, num_extended_channels, active_channels.size()));
+      }
+
+      const std::size_t ex_factor =
+          num_extended_channels / active_channels.size();
+
+      std::vector<float> noise_centroids;
+      std::vector<float> spike_centroids;
+
+      if (grid_node["noise_centroids_path"] &&
+          grid_node["spike_centroids_path"]) {
+        noise_centroids = get_vector_from_bin(
+            grid_node["noise_centroids_path"].as<std::string>());
+        spike_centroids = get_vector_from_bin(
+            grid_node["spike_centroids_path"].as<std::string>());
+      } else if (grid_node["centroids_path"]) {
+        const std::vector<float> centroids =
+            get_vector_from_bin(grid_node["centroids_path"].as<std::string>());
+        split_centroids(centroids, num_filters, noise_centroids,
+                        spike_centroids);
+      } else {
+        throw std::runtime_error(
+            std::format("Grid {} is missing either "
+                        "noise_centroids_path/spike_centroids_path "
+                        "or centroids_path",
+                        grid_id));
+      }
+
+      grids.emplace_back(
+          grid_id, std::move(active_channels), std::move(mu_filters),
+          std::move(noise_centroids), std::move(spike_centroids),
+          std::move(filter_norms), num_filters, ex_factor,
+          online_config.samples_per_cycle, online_config.demean_window_size);
     }
-    return online_params;
-  } catch (const YAML::BadFile &e) {
-    // Intercept file-not-found issues and convert to a standard runtime error
-    throw std::runtime_error(
-        "Configuration file 'config.yaml' could not be opened or found.\n");
+
+    return MultiGridDecomposer{online_config, std::move(grids)};
+
+  } catch (const YAML::BadFile &) {
+    throw std::runtime_error(std::format(
+        "Configuration file '{}' could not be opened or found.", path_to_yaml));
 
   } catch (const YAML::Exception &e) {
-    // Intercept native parsing/casting failures and forward internal message
-    throw std::runtime_error(
-        "YAML structure validation failed: " + std::string(e.what()) + "\n");
+    throw std::runtime_error("YAML structure validation failed: " +
+                             std::string(e.what()));
   }
 }
 
-std::string format_online_params(const DecompositionParams &decomp_params) {
+std::string format_online_params(const MultiGridDecomposer &decomposer) {
   std::string formatted_params;
 
-  formatted_params +=
-      std::format("Sampling frequency: {}\n", decomp_params.sampling_frequency);
-  formatted_params += std::format("num_extended_channels: {}\n",
-                                  decomp_params.num_extended_channels);
-  formatted_params += std::format("min_peak_dist_factor: {}\n",
-                                  decomp_params.min_peak_dist_factor);
-  formatted_params += std::format("decomposition_frequency: {}\n",
-                                  decomp_params.decomposition_frequency);
-  formatted_params +=
-      std::format("window_size: {}\n\n", decomp_params.window_size);
+  const OnlineDecompositionConfig &config = decomposer.config();
 
-  for (const auto &grid : decomp_params.grids) {
-    formatted_params += std::format("grid_id: {}\n", grid.grid_id);
+  formatted_params +=
+      std::format("Sampling frequency: {}\n", config.sampling_frequency);
+  formatted_params +=
+      std::format("Target extended channels: {}\n", config.tgt_ext_channels);
+  formatted_params += std::format("Decomposition frequency: {}\n",
+                                  config.decomposition_frequency);
+  formatted_params +=
+      std::format("Demean window size: {}\n", config.demean_window_size);
+  formatted_params +=
+      std::format("Samples per cycle: {}\n", config.samples_per_cycle);
+  formatted_params +=
+      std::format("Min peak distance: {}\n\n", config.min_peak_distance);
+
+  for (const auto &grid : decomposer.grids()) {
+    formatted_params += std::format("grid_id: {}\n", grid.grid_id());
+    formatted_params += std::format("active_channels: {}\n",
+                                    format_size_vector(grid.active_channels()));
     formatted_params +=
-        std::format("active_channels: {}\n", grid.active_channels);
-    std::size_t num_filters = grid.filter_norms.size();
-    formatted_params += std::format("Number of motor units: {}\n", num_filters);
+        std::format("Number of motor units: {}\n", grid.num_filters());
+    formatted_params += std::format("Extension factor: {}\n", grid.ex_factor());
+    formatted_params +=
+        std::format("Extended channels: {}\n", grid.num_extended_channels());
+
     formatted_params += std::format("Noise centroids: {}\n",
-                                    format_matrix(grid.centroids_view()));
+                                    format_vector(grid.noise_centroids_view()));
+    formatted_params += std::format("Spike centroids: {}\n",
+                                    format_vector(grid.spike_centroids_view()));
     formatted_params += std::format("Filter norms: {}\n",
                                     format_vector(grid.filter_norms_view()));
     formatted_params += std::format("Motor Unit Filters: {}\n",

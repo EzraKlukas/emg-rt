@@ -2,12 +2,11 @@
 #define DISTIME_H
 
 #include "emg-rt/utils/types.h"
-#include <vector>
 
-void get_distime(std::vector<std::vector<std::size_t>> discharge_times,
-                 emg_rt::MatrixView<float> pulse_t,
-                 emg_rt::MatrixView<float> spikes,
-                 emg_rt::ConstVectorView<float> &noise_centroids,
-                 emg_rt::ConstVectorView<float> &spike_centroids);
+void get_distime(emg_rt::RingMatrix<bool> &discharges,
+                 const emg_rt::RingMatrix<float> &pulse_t,
+                 const emg_rt::RingMatrix<bool> &spikes,
+                 const emg_rt::ConstVectorView<float> &noise_centroids,
+                 const emg_rt::ConstVectorView<float> &spike_centroids);
 
 #endif
