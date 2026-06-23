@@ -11,6 +11,8 @@ find_package(doctest REQUIRED)
 enable_testing()
 
 add_library(emg_rt_lib
+    src/buffer/signal_ring_buffer.cpp
+
     src/config/decomposition_config.cpp
 
     src/decomposition/get_discharge_t.cpp

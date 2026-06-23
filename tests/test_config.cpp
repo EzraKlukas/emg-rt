@@ -1,4 +1,4 @@
-#include "emg-rt/config/decomposition_config.h"
+#include "emg-rt/decomposition/online_decomposer.h"
 
 #include <doctest/doctest.h>
 
@@ -20,7 +20,7 @@ void write_floats(const std::filesystem::path &path,
 
 } // namespace
 
-TEST_CASE("get_online_params loads a small valid config") {
+TEST_CASE("load_online_decomposer loads a small valid config") {
   const auto dir = std::filesystem::temp_directory_path() / "emg_rt_tests";
   std::filesystem::create_directories(dir);
 
@@ -39,24 +39,34 @@ TEST_CASE("get_online_params loads a small valid config") {
          << "num_extended_channels: 3\n"
          << "min_peak_dist_factor: 0.02\n"
          << "decomposition_frequency: 1000\n"
-         << "window_size: 100\n"
+         << "demean_window_size: 100\n"
          << "grids:\n"
          << "  - grid_id: 0\n"
-         << "    active_channels: [0, 2]\n"
+         << "    active_channels: [0]\n"
          << "    mu_filters_path: " << mu_filters_path.string() << "\n"
          << "    centroids_path: " << centroids_path.string() << "\n"
          << "    filter_norms_path: " << filter_norms_path.string() << "\n";
   config.close();
 
-  const DecompositionParams params = get_online_params(config_path.string());
+  const MultiGridDecomposer decomposer =
+      load_online_decomposer(config_path.string());
+  const OnlineDecompositionConfig &config_values = decomposer.config();
 
-  CHECK(params.sampling_frequency == doctest::Approx(2000.0F));
-  CHECK(params.num_extended_channels == 3);
-  CHECK(params.grids.size() == 1);
-  REQUIRE(params.grids[0].active_channels == std::vector<std::size_t>{0, 2});
-  CHECK(params.grids[0].num_filters == 2);
-  CHECK(params.grids[0].num_extended_channels == 3);
-  CHECK(params.grids[0].mu_filters.size() == 6);
-  CHECK(params.grids[0].filter_norms[1] == doctest::Approx(4.0F));
-  CHECK_NOTHROW(params.validate_dimensions());
+  CHECK(config_values.sampling_frequency == doctest::Approx(2000.0F));
+  CHECK(config_values.tgt_ext_channels == 3);
+  CHECK(config_values.samples_per_cycle == 2);
+  CHECK(config_values.min_peak_distance == 40);
+  CHECK(decomposer.grids().size() == 1);
+
+  const GridDecomposer &grid = decomposer.grids()[0];
+  REQUIRE(grid.active_channels() == std::vector<std::size_t>{0});
+  CHECK(grid.grid_id() == 0);
+  CHECK(grid.num_filters() == 2);
+  CHECK(grid.num_extended_channels() == 3);
+  CHECK(grid.ex_factor() == 3);
+  CHECK(grid.mu_filters_view().extent(0) == 2);
+  CHECK(grid.mu_filters_view().extent(1) == 3);
+  CHECK(grid.filter_norms_view()[1] == doctest::Approx(4.0F));
+  CHECK(grid.noise_centroids_view()[1] == doctest::Approx(1.0F));
+  CHECK(grid.spike_centroids_view()[1] == doctest::Approx(3.0F));
 }

@@ -1,3 +1,4 @@
+#include "emg-rt/buffer/signal_ring_buffer.h"
 #include "emg-rt/config/decomposition_config.h"
 #include "emg-rt/decomposition/get_discharge_t.h"
 #include "emg-rt/decomposition/get_pulse_train.h"

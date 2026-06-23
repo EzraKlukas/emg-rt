@@ -1,6 +1,7 @@
 #ifndef ONLINE_DECOMPOSER_H
 #define ONLINE_DECOMPOSER_H
 
+#include "emg-rt/buffer/signal_ring_buffer.h"
 #include "emg-rt/config/decomposition_config.h"
 #include "emg-rt/utils/types.h"
 
@@ -15,6 +16,7 @@ struct GridBuffers {
   emg_rt::RingMatrix<float> pulse_t;
   emg_rt::RingMatrix<float> ext_signal;
   emg_rt::RingMatrix<float> signal;
+  emg_rt::RingVector<uint64_t> timestamps;
   emg_rt::RingMatrix<bool> spikes;
   emg_rt::RingMatrix<bool> discharges;
   std::vector<float> sums;
@@ -26,6 +28,7 @@ struct GridBuffers {
         ext_signal(num_active_channels * ex_factor, samples_per_cycle),
         signal(num_active_channels,
                samples_per_cycle + demean_window_size + (ex_factor - 1)),
+        timestamps(samples_per_cycle + demean_window_size + (ex_factor - 1)),
         spikes(num_filters, samples_per_cycle),
         discharges(num_filters, samples_per_cycle), sums(num_filters) {}
 };
@@ -51,6 +54,7 @@ public:
     validate_dimensions();
   }
 
+  void init_buffers(std::size_t start_idx, SignalRingBuffer &live_signal);
   // something to initialize the mean and buffers, e.g. fill emg buffer.
   void decompose(OnlineDecompositionConfig &config);
 
@@ -173,6 +177,8 @@ public:
       grid.decompose(config_);
     }
   }
+
+  void init_grids(SignalRingBuffer &live_signals);
 
   const OnlineDecompositionConfig &config() const { return config_; }
 

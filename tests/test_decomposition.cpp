@@ -77,25 +77,27 @@ TEST_CASE("get_distime appends samples closer to spike centroid") {
   pulse[1, 1] = 2.8F;
   pulse[1, 2] = 3.1F;
 
-  emg_rt::RingMatrix<float> spikes(2, 3);
-  spikes[0, 0] = 0.0F;
-  spikes[0, 1] = 1.0F;
-  spikes[0, 2] = 1.0F;
-  spikes[1, 0] = 0.0F;
-  spikes[1, 1] = 1.0F;
-  spikes[1, 2] = 1.0F;
+  emg_rt::RingMatrix<bool> spikes(2, 3);
+  spikes[0, 0] = false;
+  spikes[0, 1] = true;
+  spikes[0, 2] = true;
+  spikes[1, 0] = false;
+  spikes[1, 1] = true;
+  spikes[1, 2] = true;
 
   std::vector<float> noise_centroids{0.0F, 0.0F};
   std::vector<float> spike_centroids{1.0F, 3.0F};
-  std::vector<std::vector<std::size_t>> discharge_times{{}, {}};
+  emg_rt::RingMatrix<bool> discharges(2, 3);
 
   emg_rt::ConstVectorView<float> noise_view(noise_centroids.data(), 2);
   emg_rt::ConstVectorView<float> spike_view(spike_centroids.data(), 2);
 
-  get_distime(discharge_times, pulse, spikes, noise_view, spike_view);
+  get_distime(discharges, pulse, spikes, noise_view, spike_view);
 
-  CHECK(discharge_times[0][0] == 1);
-  CHECK(discharge_times[0][1] == 2);
-  CHECK(discharge_times[1][0] == 1);
-  CHECK(discharge_times[1][1] == 2);
+  CHECK_FALSE(discharges[0, 0]);
+  CHECK(discharges[0, 1]);
+  CHECK(discharges[0, 2]);
+  CHECK_FALSE(discharges[1, 0]);
+  CHECK(discharges[1, 1]);
+  CHECK(discharges[1, 2]);
 }

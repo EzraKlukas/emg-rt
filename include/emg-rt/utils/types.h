@@ -58,6 +58,26 @@ template <typename T> struct RingMatrix {
   }
 };
 
+template <typename T> struct RingVector {
+  std::size_t size;     // window length
+  std::size_t head = 0; // physical column for logical idx 0, the oldest sample
+
+  std::vector<T> data; // column-major: cols * rows
+
+  RingVector(std::size_t size) : size(size), data(size) {}
+
+  typename std::vector<T>::reference operator[](std::size_t logical_idx) {
+    return data[(head + logical_idx) % size];
+  }
+
+  void insert(T value) {
+    if (head == size) {
+      head -= size;
+    }
+    data[head++] = value;
+  }
+};
+
 } // namespace emg_rt
 
 #endif // EMG_RT_TYPES_H

@@ -272,8 +272,8 @@ std::string format_online_params(const MultiGridDecomposer &decomposer) {
                                     format_vector(grid.spike_centroids_view()));
     formatted_params += std::format("Filter norms: {}\n",
                                     format_vector(grid.filter_norms_view()));
-    formatted_params += std::format("Motor Unit Filters: {}\n",
-                                    format_matrix(grid.mu_filters_view()));
+    // formatted_params += std::format("Motor Unit Filters: {}\n",
+    //                                format_matrix(grid.mu_filters_view()));
   }
 
   return formatted_params;

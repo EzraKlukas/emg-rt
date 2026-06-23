@@ -28,7 +28,7 @@ std::vector<float> initial_sums(emg_rt::RingMatrix<float> &signal) {
 }
 
 // To run every cycle
-void incremental_demean(emg_rt::RingMatrix<float> &ext_signal,
+void incremental_demean(RingMatrix<float> &ext_signal,
                         std::size_t demean_window_size,
                         std::vector<float> &sums) {
   std::size_t ext_channels = ext_signal.rows;
