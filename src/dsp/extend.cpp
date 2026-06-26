@@ -51,19 +51,21 @@ void incremental_extend(RingMatrix<float> &ext_signal,
   std::size_t channels = signal.rows;
 
   assert(ext_signal.rows == channels * ex_factor);
-  assert(ext_signal.cols == (ex_factor - 1) + demean_window_size + new_samples);
+  assert(ext_signal.cols == new_samples);
 
   for (std::size_t new_sample = 0; new_sample < new_samples; ++new_sample) {
     for (std::size_t block = 0; block < ex_factor; ++block) {
       for (std::size_t channel = 0; channel < channels; ++channel) {
         sums[(block * channels) + channel] -=
-            ext_signal[(block * channels) + channel, new_samples - new_sample];
-        ext_signal[(block * channels) + channel, new_samples - new_sample] =
-            signal[channel, signal.cols - (new_sample + block)];
+            signal[channel, (signal.cols - 1) - (new_sample + block) -
+                                demean_window_size];
+        ext_signal[(block * channels) + channel,
+                   (new_samples - 1) - new_sample] =
+            signal[channel, (signal.cols - 1) - (new_sample + block)];
         // next line is subtle; that this mean represents the mean of a larger
         // samplesize is encoded in the length of signal: demean_window_size.
         sums[(block * channels) + channel] +=
-            signal[channel, signal.cols - (new_sample + block)];
+            signal[channel, (signal.cols - 1) - (new_sample + block)];
       }
     }
   }

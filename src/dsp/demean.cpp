@@ -14,13 +14,27 @@ using namespace emg_rt;
 // void
 //******************************************************************************
 
-// to run before the first 'initialization' cycle.
-std::vector<float> initial_sums(emg_rt::RingMatrix<float> &signal) {
-  std::vector<float> sums(signal.rows);
+/*
+ * Runs before the first decomposition cycle to calculate historical running
+ * mean.
+ *
+ * Because each extension block is translated one sample to the right of the
+ * last one in the extended signal, each subsequent block in real-time will
+ * contain data that's one sample older than the last one. Hence, we shift the
+ * subset of our initial signal used to calculate the sum for a given row
+ * according to the extension block it's in.
+ */
+std::vector<float> initial_sums(emg_rt::RingMatrix<float> &signal,
+                                std::size_t demean_window_size,
+                                std::size_t ex_factor) {
+  std::vector<float> sums(signal.rows * ex_factor);
 
-  for (std::size_t col = 0; col < signal.cols; ++col) {
-    for (std::size_t row = 0; row < signal.rows; ++row) {
-      sums[col] += signal[row, col];
+  for (std::size_t block = 0; block < ex_factor; ++block) {
+    for (std::size_t col = 0; col < demean_window_size; ++col) {
+      for (std::size_t row = 0; row < signal.rows; ++row) {
+        sums[(block * signal.rows) + row] +=
+            signal[row, (signal.cols - 1) - (col + block)];
+      }
     }
   }
 

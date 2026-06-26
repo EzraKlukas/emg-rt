@@ -3,7 +3,6 @@
 
 #include <cstddef>
 #include <mdspan>
-#include <span>
 #include <vector>
 
 /*
@@ -47,14 +46,24 @@ template <typename T> struct RingMatrix {
   }
 
   // Append one new column on the right, overwriting the oldest column.
-  void push_column(std::span<const T> column) {
+  void write_column(const T *column) {
     std::size_t write_col = head; // overwrite oldest physical column
 
+    T *dst_col = &data[write_col * rows];
+
     for (std::size_t row = 0; row < rows; ++row) {
-      data[(write_col * rows) + row] = column[row];
+      dst_col[row] = column[row];
     }
 
-    head = (head + 1) % cols;
+    increment_head();
+  }
+
+private:
+  std::size_t increment_head() {
+    if (++head == cols) {
+      head = 0;
+    }
+    return head;
   }
 };
 
@@ -77,6 +86,10 @@ template <typename T> struct RingVector {
     data[head++] = value;
   }
 };
+
+inline std::size_t abs_diff(std::size_t a, std::size_t b) {
+  return (a > b) ? (a - b) : (b - a);
+}
 
 } // namespace emg_rt
 

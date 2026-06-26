@@ -84,8 +84,12 @@ static OnlineDecompositionConfig parse_online_config(const YAML::Node &config) {
     throw std::runtime_error("Missing num_extended_channels");
   }
 
-  if (!config["min_peak_dist_factor"]) {
-    throw std::runtime_error("Missing min_peak_dist_factor");
+  if (!config["min_lookback_ms"]) {
+    throw std::runtime_error("Missing min_lookback_ms");
+  }
+
+  if (!config["min_lookahead_ms"]) {
+    throw std::runtime_error("Missing min_lookahead_ms");
   }
 
   if (!config["decomposition_frequency"]) {
@@ -110,8 +114,12 @@ static OnlineDecompositionConfig parse_online_config(const YAML::Node &config) {
       std::round(online_config.sampling_frequency /
                  online_config.decomposition_frequency));
 
-  online_config.min_peak_distance = static_cast<std::size_t>(
-      std::round(config["min_peak_dist_factor"].as<float>() *
+  online_config.min_lookback_samps = static_cast<std::size_t>(
+      std::round(config["min_lookback_ms"].as<float>() *
+                 online_config.sampling_frequency));
+
+  online_config.min_lookahead_samps = static_cast<std::size_t>(
+      std::round(config["min_lookahead_ms"].as<float>() *
                  online_config.sampling_frequency));
 
   online_config.validate();
@@ -223,7 +231,8 @@ MultiGridDecomposer load_online_decomposer(const std::string &path_to_yaml) {
           grid_id, std::move(active_channels), std::move(mu_filters),
           std::move(noise_centroids), std::move(spike_centroids),
           std::move(filter_norms), num_filters, ex_factor,
-          online_config.samples_per_cycle, online_config.demean_window_size);
+          online_config.samples_per_cycle, online_config.demean_window_size,
+          online_config.min_lookback_samps);
     }
 
     return MultiGridDecomposer{online_config, std::move(grids)};
@@ -254,7 +263,9 @@ std::string format_online_params(const MultiGridDecomposer &decomposer) {
   formatted_params +=
       std::format("Samples per cycle: {}\n", config.samples_per_cycle);
   formatted_params +=
-      std::format("Min peak distance: {}\n\n", config.min_peak_distance);
+      std::format("Min lookback distance: {}\n\n", config.min_lookback_samps);
+  formatted_params +=
+      std::format("Min lookahead distance: {}\n\n", config.min_lookahead_samps);
 
   for (const auto &grid : decomposer.grids()) {
     formatted_params += std::format("grid_id: {}\n", grid.grid_id());

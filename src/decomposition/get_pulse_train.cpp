@@ -13,6 +13,7 @@
 //******************************************************************************
 
 #include "emg-rt/decomposition/get_pulse_train.h"
+#include "emg-rt/utils/debug_views.h"
 #include "emg-rt/utils/types.h"
 
 #include <cassert>
@@ -29,17 +30,21 @@ void get_pulse_train(RingMatrix<float> &pulse_t,
   std::size_t samples = emg_buffer.cols;
   std::size_t extended_channels = emg_buffer.rows;
 
+  float tmp;
+
   assert(norm.extent(0) == filters);
   assert(mu_filters.extent(1) == extended_channels);
 
-  for (std::size_t filter = 0; filter < filters; filter++) {
-    for (std::size_t sample = 0; sample < samples; sample++) {
+  for (std::size_t filter = 0; filter < filters; ++filter) {
+    for (std::size_t sample = 0; sample < samples; ++sample) {
       for (std::size_t extended_channel = 0;
-           extended_channel < extended_channels; extended_channel++) {
-        pulse_t[filter, sample] += mu_filters[filter, extended_channel] *
-                                   emg_buffer[extended_channel, sample];
-        pulse_t[filter, sample] *= std::abs(pulse_t[filter, sample]);
-        pulse_t[filter, sample] /= norm[filter];
+           extended_channel < extended_channels; ++extended_channel) {
+        tmp = mu_filters[filter, extended_channel] *
+              emg_buffer[extended_channel, sample];
+        tmp *= std::abs(tmp);
+        tmp /= norm[filter];
+
+        pulse_t[filter, sample] += tmp;
       }
     }
   }

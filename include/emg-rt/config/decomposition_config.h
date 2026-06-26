@@ -16,7 +16,8 @@ struct OnlineDecompositionConfig {
   std::size_t demean_window_size;
 
   std::size_t samples_per_cycle;
-  std::size_t min_peak_distance;
+  std::size_t min_lookback_samps;
+  std::size_t min_lookahead_samps;
   std::size_t tgt_ext_channels;
 
   void validate() const {

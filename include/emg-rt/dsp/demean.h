@@ -3,7 +3,9 @@
 
 #include "emg-rt/utils/types.h"
 
-std::vector<float> initial_sums(emg_rt::RingMatrix<float> &signal);
+std::vector<float> initial_sums(emg_rt::RingMatrix<float> &signal,
+                                std::size_t demean_window_size,
+                                std::size_t ex_factor);
 
 void incremental_demean(emg_rt::RingMatrix<float> &ext_signal,
                         std::size_t demean_window_size,

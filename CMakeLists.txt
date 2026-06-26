@@ -15,9 +15,12 @@ add_library(emg_rt_lib
 
     src/config/decomposition_config.cpp
 
+    src/data_replay/offline_emg_source.cpp
+
     src/decomposition/get_discharge_t.cpp
     src/decomposition/get_pulse_train.cpp
     src/decomposition/is_local_max.cpp
+    src/decomposition/online_decomposer.cpp
 
     src/dsp/demean.cpp
     src/dsp/extend.cpp

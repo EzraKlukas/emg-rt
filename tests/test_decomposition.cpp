@@ -92,7 +92,7 @@ TEST_CASE("get_distime appends samples closer to spike centroid") {
   emg_rt::ConstVectorView<float> noise_view(noise_centroids.data(), 2);
   emg_rt::ConstVectorView<float> spike_view(spike_centroids.data(), 2);
 
-  get_distime(discharges, pulse, spikes, noise_view, spike_view);
+  get_distime(discharges, pulse, spikes, noise_view, spike_view, 2, 0);
 
   CHECK_FALSE(discharges[0, 0]);
   CHECK(discharges[0, 1]);

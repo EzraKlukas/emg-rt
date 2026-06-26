@@ -28,7 +28,8 @@ using namespace emg_rt;
 void get_distime(RingMatrix<bool> &discharges, const RingMatrix<float> &pulse_t,
                  const RingMatrix<bool> &spikes,
                  const ConstVectorView<float> &noise_centroids,
-                 const ConstVectorView<float> &spike_centroids) {
+                 const ConstVectorView<float> &spike_centroids,
+                 std::size_t new_samples, std::size_t min_lookahead_samps) {
   std::size_t filters = pulse_t.rows;
   std::size_t samples = pulse_t.cols;
 
@@ -38,7 +39,8 @@ void get_distime(RingMatrix<bool> &discharges, const RingMatrix<float> &pulse_t,
          filters == spike_centroids.size());
 
   for (std::size_t filter = 0; filter < filters; ++filter) {
-    for (std::size_t sample = 0; sample < samples; ++sample) {
+    for (std::size_t sample = spikes.cols - (min_lookahead_samps + new_samples);
+         sample < spikes.cols - min_lookahead_samps; ++sample) {
       const float sample_value =
           pulse_t[filter, sample] * static_cast<float>(spikes[filter, sample]);
 

@@ -11,9 +11,12 @@
 #include <utility>
 #include <vector>
 
+inline constexpr std::size_t channels_per_grid = 64;
+
 // Grid specific
 struct GridBuffers {
   emg_rt::RingMatrix<float> pulse_t;
+  std::vector<float> pulse_t_maxima;
   emg_rt::RingMatrix<float> ext_signal;
   emg_rt::RingMatrix<float> signal;
   emg_rt::RingVector<uint64_t> timestamps;
@@ -23,14 +26,18 @@ struct GridBuffers {
 
   GridBuffers(std::size_t samples_per_cycle, std::size_t num_active_channels,
               std::size_t ex_factor, std::size_t num_filters,
-              std::size_t demean_window_size)
-      : pulse_t(num_filters, samples_per_cycle),
+              std::size_t demean_window_size, std::size_t min_lookback_ms)
+      : pulse_t(num_filters, samples_per_cycle + min_lookback_ms),
+        pulse_t_maxima(num_filters),
         ext_signal(num_active_channels * ex_factor, samples_per_cycle),
         signal(num_active_channels,
                samples_per_cycle + demean_window_size + (ex_factor - 1)),
         timestamps(samples_per_cycle + demean_window_size + (ex_factor - 1)),
-        spikes(num_filters, samples_per_cycle),
-        discharges(num_filters, samples_per_cycle), sums(num_filters) {}
+        spikes(num_filters, samples_per_cycle + min_lookback_ms),
+        discharges(num_filters, samples_per_cycle + min_lookback_ms),
+        sums(num_active_channels * ex_factor) {}
+
+  void advance_output_heads(std::size_t advance_dist);
 };
 
 class GridDecomposer {
@@ -41,7 +48,7 @@ public:
                  std::vector<float> spike_centroids,
                  std::vector<float> filter_norms, std::size_t num_filters,
                  std::size_t ex_factor, std::size_t samples_per_cycle,
-                 std::size_t demean_window_size)
+                 std::size_t demean_window_size, std::size_t min_lookback_ms)
       : grid_id_(grid_id), active_channels_(std::move(active_channels)),
         mu_filters_(std::move(mu_filters)),
         noise_centroids_(std::move(noise_centroids)),
@@ -50,11 +57,12 @@ public:
         ex_factor_(ex_factor),
         num_extended_channels_(ex_factor_ * active_channels_.size()),
         buffers_(samples_per_cycle, active_channels_.size(), ex_factor_,
-                 num_filters_, demean_window_size) {
+                 num_filters_, demean_window_size, min_lookback_ms) {
     validate_dimensions();
   }
 
   void init_buffers(std::size_t start_idx, SignalRingBuffer &live_signal);
+  void init_pulse_hist(OnlineDecompositionConfig &config);
   // something to initialize the mean and buffers, e.g. fill emg buffer.
   void decompose(OnlineDecompositionConfig &config);
 
@@ -175,10 +183,18 @@ public:
   void decompose() {
     for (auto &grid : grids_) {
       grid.decompose(config_);
+      grid.buffers().advance_output_heads(config_.samples_per_cycle);
     }
   }
 
-  void init_grids(SignalRingBuffer &live_signals);
+  void init_grids(SignalRingBuffer &live_signal);
+  void init_pulse_hist() {
+    for (auto &grid : grids_) {
+      grid.init_pulse_hist(config_);
+      grid.buffers().advance_output_heads(config_.samples_per_cycle);
+    }
+  }
+  void get_samples(SignalRingBuffer &live_signal, std::size_t num_to_get);
 
   const OnlineDecompositionConfig &config() const { return config_; }
 

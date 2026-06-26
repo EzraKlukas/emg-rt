@@ -55,7 +55,8 @@ TEST_CASE("load_online_decomposer loads a small valid config") {
   CHECK(config_values.sampling_frequency == doctest::Approx(2000.0F));
   CHECK(config_values.tgt_ext_channels == 3);
   CHECK(config_values.samples_per_cycle == 2);
-  CHECK(config_values.min_peak_distance == 40);
+  CHECK(config_values.min_lookback_samps == 40);
+  CHECK(config_values.min_lookahead_samps == 40);
   CHECK(decomposer.grids().size() == 1);
 
   const GridDecomposer &grid = decomposer.grids()[0];

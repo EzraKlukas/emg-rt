@@ -1,11 +1,7 @@
 #include "emg-rt/buffer/signal_ring_buffer.h"
-#include "emg-rt/decomposition/online_decomposer.h"
-#include "emg-rt/utils/types.h"
 
 #include <cassert>
 #include <cstddef>
-#include <cstdint>
-#include <utility>
 #include <vector>
 
 using namespace std;
@@ -22,36 +18,47 @@ static inline float rhd_u16_to_microvolts(uint16_t raw) {
  * Samples written to SignalRingBuffer are expected to contain all channels from
  * all grids.
  */
-void SignalRingBuffer::add_sample(Sample sample) {
-  samples_[write_head_] = std::move(sample);
-  ++write_head_;
-  if (write_head_ == size_) {
-    write_head_ -= size_;
+void SignalRingBuffer::write_sample(uint64_t timestamp,
+                                    const uint16_t *sample) noexcept {
+  timestamps_[write_head_] = timestamp;
+  float *sig_dst = &signals_[write_head_ * num_channels_];
+
+  for (size_t ch = 0; ch < num_channels_; ++ch) {
+    sig_dst[ch] = rhd_u16_to_microvolts(sample[ch]);
+  }
+
+  prefix_increment_write_head();
+}
+
+void SignalRingBuffer::write_samples(size_t num_to_write,
+                                     const uint64_t *timestamps,
+                                     const uint16_t *samples) noexcept {
+  uint64_t *ts_dst = &timestamps_[write_head_];
+  float *sig_dst = &signals_[write_head_ * num_channels_];
+
+  for (size_t sample = 0; sample < num_to_write; ++sample) {
+    ts_dst[sample] = timestamps[sample];
+    for (size_t ch = 0; ch < num_channels_; ++ch) {
+      sig_dst[(sample * num_channels_) + ch] =
+          rhd_u16_to_microvolts(samples[(sample * num_channels_) + ch]);
+    }
+    prefix_increment_write_head();
   }
 }
 
-/*
- * Problem is Sample's not really useful outside of this context so won't use.
- */
-Sample SignalRingBuffer::get_sample() {
-  if (read_head == size_) {
-    read_head -= size_;
+// Increments, but returns current. (postfix increment)
+size_t SignalRingBuffer::postfix_increment_read_head() {
+  if (read_head_ == size_ - 1) {
+    read_head_ = 0;
+    return read_head_;
   }
-  return samples_[read_head++];
+  return read_head_++;
 }
 
-/*
- * Check later if this is efficient enough.
- */
-void SignalRingBuffer::add_samples(std::vector<Sample> &src) {
-  for (const Sample &sample : src) {
-    add_sample(sample);
+// Increments before returning. (prefix increment)
+size_t SignalRingBuffer::prefix_increment_write_head() {
+  if (++write_head_ == size_) {
+    write_head_ = 0;
   }
-}
-
-void SignalRingBuffer::increment_read_head() {
-  if (read_head_ == size_) {
-    read_head_ -= size_;
-  }
-  ++read_head_;
+  return write_head_;
 }

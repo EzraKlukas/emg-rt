@@ -12,10 +12,10 @@ TEST_CASE("RingMatrix push_column preserves logical order after wrap") {
   const std::array<float, 2> third{3.0F, 30.0F};
   const std::array<float, 2> fourth{4.0F, 40.0F};
 
-  matrix.push_column(first);
-  matrix.push_column(second);
-  matrix.push_column(third);
-  matrix.push_column(fourth);
+  matrix.write_column(first.data());
+  matrix.write_column(second.data());
+  matrix.write_column(third.data());
+  matrix.write_column(fourth.data());
 
   CHECK(matrix[0, 0] == doctest::Approx(2.0F));
   CHECK(matrix[1, 0] == doctest::Approx(20.0F));
