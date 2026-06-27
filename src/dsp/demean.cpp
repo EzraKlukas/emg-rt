@@ -33,7 +33,7 @@ std::vector<float> initial_sums(emg_rt::RingMatrix<float> &signal,
     for (std::size_t col = 0; col < demean_window_size; ++col) {
       for (std::size_t row = 0; row < signal.rows; ++row) {
         sums[(block * signal.rows) + row] +=
-            signal[row, (signal.cols - 1) - (col + block)];
+            signal(row, (signal.cols - 1) - (col + block));
       }
     }
   }
@@ -50,7 +50,7 @@ void incremental_demean(RingMatrix<float> &ext_signal,
   for (std::size_t sample = 0; sample < samples; ++sample) {
     for (std::size_t ext_channel = 0; ext_channel < ext_channels;
          ++ext_channel) {
-      ext_signal[ext_channel, sample] -=
+      ext_signal(ext_channel, sample) -=
           sums[ext_channel] / (float)demean_window_size;
     }
   }

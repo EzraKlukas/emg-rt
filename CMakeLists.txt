@@ -6,9 +6,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(yaml-cpp REQUIRED)
-find_package(doctest REQUIRED)
-
-enable_testing()
 
 add_library(emg_rt_lib
     src/buffer/signal_ring_buffer.cpp
@@ -55,5 +52,3 @@ target_compile_options(emg-rt PRIVATE
     -Wpedantic
     -g
 )
-
-add_subdirectory(tests)

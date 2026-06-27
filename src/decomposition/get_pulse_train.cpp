@@ -13,19 +13,16 @@
 //******************************************************************************
 
 #include "emg-rt/decomposition/get_pulse_train.h"
-#include "emg-rt/utils/debug_views.h"
 #include "emg-rt/utils/types.h"
 
 #include <cassert>
 #include <cstdlib>
-#include <mdspan>
 
 using namespace emg_rt;
 
 void get_pulse_train(RingMatrix<float> &pulse_t,
                      const RingMatrix<float> &emg_buffer,
-                     ConstMatrixView<float> mu_filters,
-                     ConstVectorView<float> norm) {
+                     MatrixView<float> mu_filters, VectorView<float> norm) {
   std::size_t filters = mu_filters.extent(0);
   std::size_t samples = emg_buffer.cols;
   std::size_t extended_channels = emg_buffer.rows;
@@ -39,12 +36,12 @@ void get_pulse_train(RingMatrix<float> &pulse_t,
     for (std::size_t sample = 0; sample < samples; ++sample) {
       for (std::size_t extended_channel = 0;
            extended_channel < extended_channels; ++extended_channel) {
-        tmp = mu_filters[filter, extended_channel] *
-              emg_buffer[extended_channel, sample];
+        tmp = mu_filters(filter, extended_channel) *
+              emg_buffer(extended_channel, sample);
         tmp *= std::abs(tmp);
-        tmp /= norm[filter];
+        tmp /= norm(filter);
 
-        pulse_t[filter, sample] += tmp;
+        pulse_t(filter, sample) += tmp;
       }
     }
   }

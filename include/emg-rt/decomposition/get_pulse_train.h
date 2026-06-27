@@ -5,7 +5,7 @@
 
 void get_pulse_train(emg_rt::RingMatrix<float> &pulse_t,
                      const emg_rt::RingMatrix<float> &emg_buffer,
-                     emg_rt::ConstMatrixView<float> mu_filters,
-                     emg_rt::ConstVectorView<float> norm);
+                     emg_rt::MatrixView<float> mu_filters,
+                     emg_rt::VectorView<float> norm);
 
 #endif

@@ -27,8 +27,8 @@ using namespace emg_rt;
 
 void get_distime(RingMatrix<bool> &discharges, const RingMatrix<float> &pulse_t,
                  const RingMatrix<bool> &spikes,
-                 const ConstVectorView<float> &noise_centroids,
-                 const ConstVectorView<float> &spike_centroids,
+                 const VectorView<float> &noise_centroids,
+                 const VectorView<float> &spike_centroids,
                  std::size_t new_samples, std::size_t min_lookahead_samps) {
   std::size_t filters = pulse_t.rows;
   std::size_t samples = pulse_t.cols;
@@ -42,16 +42,16 @@ void get_distime(RingMatrix<bool> &discharges, const RingMatrix<float> &pulse_t,
     for (std::size_t sample = spikes.cols - (min_lookahead_samps + new_samples);
          sample < spikes.cols - min_lookahead_samps; ++sample) {
       const float sample_value =
-          pulse_t[filter, sample] * static_cast<float>(spikes[filter, sample]);
+          pulse_t(filter, sample) * static_cast<float>(spikes(filter, sample));
 
-      const float noise_dist = std::abs(sample_value - noise_centroids[filter]);
-      const float spike_dist = std::abs(sample_value - spike_centroids[filter]);
+      const float noise_dist = std::abs(sample_value - noise_centroids(filter));
+      const float spike_dist = std::abs(sample_value - spike_centroids(filter));
 
       if (noise_dist > spike_dist) {
         // discharge_times[filter].push_back(sample); // was vector of vectors
-        discharges[filter, sample] = true;
+        discharges(filter, sample) = true;
       } else {
-        discharges[filter, sample] = false;
+        discharges(filter, sample) = false;
       }
     }
   }

@@ -28,24 +28,24 @@ void incremental_is_local_max(const RingMatrix<float> &pulse_t,
     for (std::size_t new_sample = pulse_t.cols - new_samples;
          new_sample < pulse_t.cols; ++new_sample) {
 
-      if (std::abs(pulse_t[filter, new_sample]) > maxima[filter]) {
-        maxima[filter] = std::abs(pulse_t[filter, new_sample]);
-        spikes[filter, new_sample] = true;
+      if (std::abs(pulse_t(filter, new_sample)) > maxima[filter]) {
+        maxima[filter] = std::abs(pulse_t(filter, new_sample));
+        spikes(filter, new_sample) = true;
       } else {
-        spikes[filter, new_sample] = false;
+        spikes(filter, new_sample) = false;
       }
 
       check_spike_idx = new_sample - min_lookahead_dist;
-      if (spikes[filter, check_spike_idx] &&
-          std::abs(pulse_t[filter, check_spike_idx]) < maxima[filter]) {
-        spikes[filter, check_spike_idx] = false;
+      if (spikes(filter, check_spike_idx) &&
+          std::abs(pulse_t(filter, check_spike_idx)) < maxima[filter]) {
+        spikes(filter, check_spike_idx) = false;
       }
 
-      if (std::abs(pulse_t[filter, new_sample]) == maxima[filter]) {
+      if (std::abs(pulse_t(filter, new_sample)) == maxima[filter]) {
         maxima[filter] = 0.0;
         for (std::size_t idx = new_samples; idx < pulse_t.cols; ++idx) {
           maxima[filter] =
-              std::max(std::abs(pulse_t[filter, idx]), maxima[filter]);
+              std::max(std::abs(pulse_t(filter, idx)), maxima[filter]);
         }
       }
     }
@@ -64,17 +64,17 @@ void is_local_max(const RingMatrix<float> &src, RingMatrix<bool> &dst,
 
   for (std::size_t row = 0; row < src.rows; row++) {
     for (std::size_t col = 1; col < src.cols - 1; col++) { // no edges
-      if ((src[row, col] >= src[row, col - 1]) &&
-          (src[row, col] >= src[row, col + 1])) {
+      if ((src(row, col) >= src(row, col - 1)) &&
+          (src(row, col) >= src(row, col + 1))) {
         if (last_maximum_col.has_value() &&
             (col - last_maximum_col.value() <= min_peak_distance)) {
-          if (src[row, last_maximum_col.value()] < src[row, col]) {
-            dst[row, col] = true;
-            dst[row, last_maximum_col.value()] = false;
+          if (src(row, last_maximum_col.value()) < src(row, col)) {
+            dst(row, col) = true;
+            dst(row, last_maximum_col.value()) = false;
             last_maximum_col = col;
           }
         } else {
-          dst[row, col] = true;
+          dst(row, col) = true;
           last_maximum_col = col;
         }
       }

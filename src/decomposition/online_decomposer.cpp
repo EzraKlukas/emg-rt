@@ -23,7 +23,7 @@ void GridDecomposer::init_buffers(std::size_t start_idx,
   for (size_t sample_idx = 0; sample_idx < num_samples; ++sample_idx) {
     buffers().timestamps.data[sample_idx] = live_signal.timestamps()[read_idx];
     for (size_t chan_idx = 0; chan_idx < num_active_channels; ++chan_idx) {
-      buffers().signal[chan_idx, sample_idx] =
+      buffers().signal(chan_idx, sample_idx) =
           live_signal.signals()[(read_idx * tot_channels) + start_idx +
                                 active_channels()[chan_idx]];
     }

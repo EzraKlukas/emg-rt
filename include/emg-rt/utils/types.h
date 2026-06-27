@@ -2,7 +2,6 @@
 #define EMG_RT_TYPES_H
 
 #include <cstddef>
-#include <mdspan>
 #include <vector>
 
 /*
@@ -13,17 +12,48 @@
 
 namespace emg_rt {
 
-template <typename T>
-using MatrixView = std::mdspan<T, std::dextents<std::size_t, 2>>;
+template <typename T> struct MatrixView {
+  T *ptr = nullptr;
+  std::size_t rows = 0;
+  std::size_t cols = 0;
 
-template <typename T>
-using ConstMatrixView = std::mdspan<const T, std::dextents<std::size_t, 2>>;
+  MatrixView() = default;
 
-template <typename T>
-using VectorView = std::mdspan<T, std::dextents<std::size_t, 1>>;
+  MatrixView(T *data, std::size_t rows, std::size_t cols)
+      : ptr(data), rows(rows), cols(cols) {}
 
-template <typename T>
-using ConstVectorView = std::mdspan<const T, std::dextents<std::size_t, 1>>;
+  T &operator()(std::size_t row, std::size_t col) const {
+    // column-major: index = col * rows + row
+    return ptr[(col * rows) + row];
+  }
+
+  T *data_handle() const { return ptr; }
+
+  std::size_t extent(std::size_t dim) const { return dim == 0 ? rows : cols; }
+
+  std::size_t size() const { return rows * cols; }
+};
+
+template <typename T> struct VectorView {
+  T *ptr = nullptr;
+  std::size_t n = 0;
+
+  VectorView() = default;
+
+  VectorView(T *data, std::size_t n) : ptr(data), n(n) {}
+
+  T &operator()(std::size_t i) const { return ptr[i]; }
+
+  T *data_handle() const { return ptr; }
+
+  std::size_t extent(std::size_t dim) const { return dim == 0 ? n : 1; }
+
+  std::size_t size() const { return n; }
+};
+
+template <typename T> using ConstMatrixView = MatrixView<const T>;
+
+template <typename T> using ConstVectorView = VectorView<const T>;
 
 template <typename T> struct RingMatrix {
   std::size_t rows;
@@ -35,13 +65,13 @@ template <typename T> struct RingMatrix {
   RingMatrix(std::size_t rows, std::size_t cols)
       : rows(rows), cols(cols), data(rows * cols) {}
 
-  typename std::vector<T>::reference operator[](std::size_t row,
+  typename std::vector<T>::reference operator()(std::size_t row,
                                                 std::size_t logical_col) {
     return data[(((head + logical_col) % cols) * rows) + row];
   }
 
   typename std::vector<T>::const_reference
-  operator[](std::size_t row, std::size_t logical_col) const {
+  operator()(std::size_t row, std::size_t logical_col) const {
     return data[(((head + logical_col) % cols) * rows) + row];
   }
 
@@ -75,7 +105,7 @@ template <typename T> struct RingVector {
 
   RingVector(std::size_t size) : size(size), data(size) {}
 
-  typename std::vector<T>::reference operator[](std::size_t logical_idx) {
+  typename std::vector<T>::reference operator()(std::size_t logical_idx) {
     return data[(head + logical_idx) % size];
   }
 

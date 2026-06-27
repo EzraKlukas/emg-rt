@@ -36,7 +36,7 @@ template <typename Vector>
   std::string result;
 
   for (std::size_t i = 0; i < view.extent(0); ++i) {
-    result += std::format("{}", view[i]);
+    result += std::format("{}", view(i));
 
     if (i + 1 < view.extent(0)) {
       result += separator;
@@ -54,7 +54,7 @@ template <typename Matrix>
 
   for (std::size_t i = 0; i < view.extent(0); ++i) {
     for (std::size_t j = 0; j < view.extent(1); ++j) {
-      result += std::format("{}", view[i, j]);
+      result += std::format("{}", view(i, j));
 
       if (j + 1 < view.extent(1)) {
         result += column_separator;
