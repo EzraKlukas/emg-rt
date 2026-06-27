@@ -31,10 +31,9 @@ void get_distime(RingMatrix<bool> &discharges, const RingMatrix<float> &pulse_t,
                  const VectorView<float> &spike_centroids,
                  std::size_t new_samples, std::size_t min_lookahead_samps) {
   std::size_t filters = pulse_t.rows;
-  std::size_t samples = pulse_t.cols;
 
   assert(discharges.rows == filters);
-  assert(spikes.rows == filters && spikes.cols == samples);
+  assert(spikes.rows == filters && spikes.cols == pulse_t.cols);
   assert(filters == noise_centroids.size() &&
          filters == spike_centroids.size());
 

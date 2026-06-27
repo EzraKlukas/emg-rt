@@ -51,34 +51,3 @@ void incremental_is_local_max(const RingMatrix<float> &pulse_t,
     }
   }
 }
-
-void is_local_max(const RingMatrix<float> &src, RingMatrix<bool> &dst,
-                  const std::size_t min_peak_distance) {
-  std::size_t rows = src.rows;
-  std::size_t cols = src.cols;
-
-  assert(rows == dst.rows);
-  assert(cols == dst.cols);
-
-  std::optional<std::size_t> last_maximum_col;
-
-  for (std::size_t row = 0; row < src.rows; row++) {
-    for (std::size_t col = 1; col < src.cols - 1; col++) { // no edges
-      if ((src(row, col) >= src(row, col - 1)) &&
-          (src(row, col) >= src(row, col + 1))) {
-        if (last_maximum_col.has_value() &&
-            (col - last_maximum_col.value() <= min_peak_distance)) {
-          if (src(row, last_maximum_col.value()) < src(row, col)) {
-            dst(row, col) = true;
-            dst(row, last_maximum_col.value()) = false;
-            last_maximum_col = col;
-          }
-        } else {
-          dst(row, col) = true;
-          last_maximum_col = col;
-        }
-      }
-    }
-    last_maximum_col.reset();
-  }
-}

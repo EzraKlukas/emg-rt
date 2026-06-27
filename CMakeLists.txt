@@ -7,6 +7,14 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(yaml-cpp REQUIRED)
 
+if(TARGET yaml-cpp::yaml-cpp)
+    set(YAML_CPP_TARGET yaml-cpp::yaml-cpp)
+elseif(TARGET yaml-cpp)
+    set(YAML_CPP_TARGET yaml-cpp)
+else()
+    message(FATAL_ERROR "yaml-cpp found, but no usable CMake target was exported")
+endif()
+
 add_library(emg_rt_lib
     src/buffer/signal_ring_buffer.cpp
 
@@ -28,7 +36,7 @@ target_include_directories(emg_rt_lib PUBLIC
 )
 
 target_link_libraries(emg_rt_lib PRIVATE
-    yaml-cpp::yaml-cpp
+    ${YAML_CPP_TARGET}
 )
 
 target_compile_options(emg_rt_lib PRIVATE
