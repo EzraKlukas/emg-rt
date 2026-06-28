@@ -32,6 +32,10 @@ int main(int argc, char *argv[]) {
                             signal_source.data());
   decompose.init_grids(live_signal);
 
+  if (num_decomp_cycles == 0) {
+    num_decomp_cycles = timestamps.size() - live_signal.size();
+  }
+
   for (size_t emg_count = live_signal.size();
        emg_count < live_signal.size() + num_decomp_cycles;
        emg_count = emg_count + decompose.config().samples_per_cycle) {
