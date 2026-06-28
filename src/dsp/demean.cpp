@@ -1,4 +1,5 @@
 #include "emg-rt/dsp/demean.h"
+#include "emg-rt/profiling/timer.h"
 #include "emg-rt/utils/types.h"
 
 using namespace emg_rt;
@@ -45,6 +46,7 @@ std::vector<float> initial_sums(emg_rt::RingMatrix<float> &signal,
 void incremental_demean(RingMatrix<float> &ext_signal,
                         std::size_t demean_window_size,
                         std::vector<float> &sums) {
+  emg_rt::prof::ScopedTimer demean_timer(emg_rt::prof::Section::demean);
   std::size_t ext_channels = ext_signal.rows;
   std::size_t samples = ext_signal.cols;
   for (std::size_t sample = 0; sample < samples; ++sample) {

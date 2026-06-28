@@ -1,4 +1,5 @@
 #include "emg-rt/buffer/signal_ring_buffer.h"
+#include "emg-rt/profiling/timer.h"
 
 #include <cassert>
 #include <cstddef>
@@ -33,6 +34,7 @@ void SignalRingBuffer::write_sample(uint64_t timestamp,
 void SignalRingBuffer::write_samples(size_t num_to_write,
                                      const uint64_t *timestamps,
                                      const uint16_t *samples) noexcept {
+  emg_rt::prof::ScopedTimer ring_write_timer(emg_rt::prof::Section::ring_write);
   uint64_t *ts_dst = &timestamps_[write_head_];
   float *sig_dst = &signals_[write_head_ * num_channels_];
 

@@ -2,11 +2,19 @@
 #include "emg-rt/config/decomposition_config.h"
 #include "emg-rt/data_replay/offline_emg_source.h"
 #include "emg-rt/decomposition/online_decomposer.h"
+#include "emg-rt/profiling/timer.h"
+#include <iostream>
 
 const std::string path_to_yaml = "offline_params/decomposition_config.yaml";
 const std::string path_to_sig = "offline_data/emg.bin";
 
-int main() {
+int main(int argc, char *argv[]) {
+  std::size_t num_decomp_cycles = 0;
+  if (argc == 2) {
+    std::string str_arg_view(argv[1]);
+    num_decomp_cycles = static_cast<std::size_t>(std::stoull(str_arg_view));
+  }
+
   MultiGridDecomposer decompose = load_online_decomposer(path_to_yaml);
   // std::cout << format_online_params(decompose) << std::flush;
 
@@ -24,8 +32,11 @@ int main() {
                             signal_source.data());
   decompose.init_grids(live_signal);
 
-  for (size_t emg_count = live_signal.size(); emg_count < signal_source.size();
+  for (size_t emg_count = live_signal.size();
+       emg_count < live_signal.size() + num_decomp_cycles;
        emg_count = emg_count + decompose.config().samples_per_cycle) {
+    emg_rt::prof::ScopedTimer cycle_timer(emg_rt::prof::Section::cycle);
+
     live_signal.write_samples(
         decompose.config().samples_per_cycle, &timestamps[emg_count],
         &signal_source[emg_count * live_signal.num_channels()]);
@@ -37,4 +48,5 @@ int main() {
       decompose.decompose();
     }
   }
+  std::cout << emg_rt::prof::summarize_stats();
 }

@@ -17,6 +17,7 @@
 //******************************************************************************
 
 #include "emg-rt/decomposition/get_discharge_t.h"
+#include "emg-rt/profiling/timer.h"
 #include "emg-rt/utils/types.h"
 
 #include <cassert>
@@ -30,6 +31,9 @@ void get_distime(RingMatrix<bool> &discharges, const RingMatrix<float> &pulse_t,
                  const VectorView<float> &noise_centroids,
                  const VectorView<float> &spike_centroids,
                  std::size_t new_samples, std::size_t min_lookahead_samps) {
+  emg_rt::prof::ScopedTimer get_distime_timer(
+      emg_rt::prof::Section::thresholding);
+
   std::size_t filters = pulse_t.rows;
 
   assert(discharges.rows == filters);

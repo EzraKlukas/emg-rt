@@ -1,0 +1,165 @@
+.
+├── AGENTS.md
+├── build
+│   ├── bild
+│   │   ├── CMakeCache.txt
+│   │   ├── CMakeFiles
+│   │   │   ├── 4.3.3
+│   │   │   │   ├── CMakeCXXCompiler.cmake
+│   │   │   │   ├── CMakeDetermineCompilerABI_CXX.bin
+│   │   │   │   ├── CMakeSystem.cmake
+│   │   │   │   └── CompilerIdCXX
+│   │   │   │       ├── a.out
+│   │   │   │       ├── CMakeCXXCompilerId.cpp
+│   │   │   │       └── tmp
+│   │   │   ├── cmake.check_cache
+│   │   │   ├── CMakeConfigureLog.yaml
+│   │   │   ├── CMakeDirectoryInformation.cmake
+│   │   │   ├── CMakeScratch
+│   │   │   ├── emg-rt.dir
+│   │   │   │   ├── build.make
+│   │   │   │   ├── cmake_clean.cmake
+│   │   │   │   ├── compiler_depend.make
+│   │   │   │   ├── compiler_depend.ts
+│   │   │   │   ├── DependInfo.cmake
+│   │   │   │   ├── depend.make
+│   │   │   │   ├── flags.make
+│   │   │   │   ├── link.txt
+│   │   │   │   ├── progress.make
+│   │   │   │   └── src
+│   │   │   │       ├── config
+│   │   │   │       ├── decomposition
+│   │   │   │       └── dsp
+│   │   │   ├── InstallScripts.json
+│   │   │   ├── Makefile2
+│   │   │   ├── Makefile.cmake
+│   │   │   ├── pkgRedirects
+│   │   │   ├── progress.marks
+│   │   │   └── TargetDirectories.txt
+│   │   ├── cmake_install.cmake
+│   │   ├── compile_commands.json
+│   │   └── Makefile
+│   ├── build.ninja
+│   ├── CMakeCache.txt
+│   ├── CMakeFiles
+│   │   ├── 4.3.3
+│   │   │   ├── CMakeCXXCompiler.cmake
+│   │   │   ├── CMakeDetermineCompilerABI_CXX.bin
+│   │   │   ├── CMakeSystem.cmake
+│   │   │   └── CompilerIdCXX
+│   │   │       ├── a.out
+│   │   │       ├── CMakeCXXCompilerId.cpp
+│   │   │       └── tmp
+│   │   ├── 4.3.4
+│   │   │   ├── CMakeCXXCompiler.cmake
+│   │   │   ├── CMakeDetermineCompilerABI_CXX.bin
+│   │   │   ├── CMakeSystem.cmake
+│   │   │   └── CompilerIdCXX
+│   │   │       ├── a.out
+│   │   │       ├── CMakeCXXCompilerId.cpp
+│   │   │       └── tmp
+│   │   ├── cmake.check_cache
+│   │   ├── CMakeConfigureLog.yaml
+│   │   ├── emg-rt.dir
+│   │   │   └── src
+│   │   │       ├── config
+│   │   │       │   └── decomposition_config.cpp.o
+│   │   │       ├── decomposition
+│   │   │       │   ├── get_discharge_t.cpp.o
+│   │   │       │   ├── get_pulse_train.cpp.o
+│   │   │       │   └── is_local_max.cpp.o
+│   │   │       ├── dsp
+│   │   │       │   ├── demean.cpp.o
+│   │   │       │   └── extend.cpp.o
+│   │   │       └── main.cpp.o
+│   │   ├── emg_rt_lib.dir
+│   │   │   └── src
+│   │   │       ├── buffer
+│   │   │       │   └── signal_ring_buffer.cpp.o
+│   │   │       ├── config
+│   │   │       │   └── decomposition_config.cpp.o
+│   │   │       ├── data_replay
+│   │   │       │   └── offline_emg_source.cpp.o
+│   │   │       ├── decomposition
+│   │   │       │   ├── get_discharge_t.cpp.o
+│   │   │       │   ├── get_pulse_train.cpp.o
+│   │   │       │   ├── is_local_max.cpp.o
+│   │   │       │   └── online_decomposer.cpp.o
+│   │   │       └── dsp
+│   │   │           ├── demean.cpp.o
+│   │   │           └── extend.cpp.o
+│   │   ├── InstallScripts.json
+│   │   ├── pkgRedirects
+│   │   ├── rules.ninja
+│   │   └── TargetDirectories.txt
+│   ├── cmake_install.cmake
+│   ├── compile_commands.json
+│   ├── CTestTestfile.cmake
+│   ├── emg-rt
+│   ├── libemg_rt_lib.a
+│   ├── Testing
+│   │   └── Temporary
+│   │       ├── CTestCostData.txt
+│   │       └── LastTest.log
+│   └── tests
+│       ├── CMakeFiles
+│       │   └── emg_rt_tests.dir
+│       │       ├── test_config.cpp.o
+│       │       ├── test_decomposition.cpp.o
+│       │       ├── test_dsp.cpp.o
+│       │       ├── test_main.cpp.o
+│       │       └── test_types.cpp.o
+│       ├── cmake_install.cmake
+│       └── CTestTestfile.cmake
+├── CMakeLists.txt
+├── compile_commands.json -> build/compile_commands.json
+├── include
+│   └── emg-rt
+│       ├── buffer
+│       │   └── signal_ring_buffer.h
+│       ├── config
+│       │   └── decomposition_config.h
+│       ├── data_replay
+│       │   └── offline_emg_source.h
+│       ├── decomposition
+│       │   ├── get_discharge_t.h
+│       │   ├── get_pulse_train.h
+│       │   ├── is_local_max.h
+│       │   └── online_decomposer.h
+│       ├── dsp
+│       │   ├── demean.h
+│       │   └── extend.h
+│       └── utils
+│           ├── debug_views.h
+│           ├── formatting.h
+│           └── types.h
+├── offline_data
+│   └── emg.bin
+├── offline_params
+│   ├── decomposition_config.yaml
+│   └── soleus_grid
+│       ├── centroids.bin
+│       ├── filter_norms.bin
+│       └── mu_filters.bin
+├── README.md
+├── repository_tree.txt
+├── src
+│   ├── buffer
+│   │   └── signal_ring_buffer.cpp
+│   ├── config
+│   │   └── decomposition_config.cpp
+│   ├── data_replay
+│   │   └── offline_emg_source.cpp
+│   ├── decomposition
+│   │   ├── get_discharge_t.cpp
+│   │   ├── get_pulse_train.cpp
+│   │   ├── is_local_max.cpp
+│   │   └── online_decomposer.cpp
+│   ├── dsp
+│   │   ├── demean.cpp
+│   │   └── extend.cpp
+│   └── main.cpp
+└── tests
+    └── test_decomposition.cpp
+
+57 directories, 106 files

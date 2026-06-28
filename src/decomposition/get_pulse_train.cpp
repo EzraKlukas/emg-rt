@@ -13,6 +13,7 @@
 //******************************************************************************
 
 #include "emg-rt/decomposition/get_pulse_train.h"
+#include "emg-rt/profiling/timer.h"
 #include "emg-rt/utils/types.h"
 
 #include <cassert>
@@ -23,6 +24,9 @@ using namespace emg_rt;
 void get_pulse_train(RingMatrix<float> &pulse_t,
                      const RingMatrix<float> &emg_buffer,
                      MatrixView<float> mu_filters, VectorView<float> norm) {
+  emg_rt::prof::ScopedTimer pulse_train_timer(
+      emg_rt::prof::Section::pulse_train);
+
   std::size_t filters = mu_filters.extent(0);
   std::size_t samples = emg_buffer.cols;
   std::size_t extended_channels = emg_buffer.rows;

@@ -1,4 +1,5 @@
 #include "emg-rt/dsp/extend.h"
+#include "emg-rt/profiling/timer.h"
 #include "emg-rt/utils/types.h"
 
 #include <cassert>
@@ -48,6 +49,7 @@ void incremental_extend(RingMatrix<float> &ext_signal,
                         RingMatrix<float> &signal, std::size_t ex_factor,
                         std::vector<float> &sums, std::size_t new_samples,
                         std::size_t demean_window_size) {
+  emg_rt::prof::ScopedTimer extend_timer(emg_rt::prof::Section::extend);
   std::size_t channels = signal.rows;
 
   assert(ext_signal.rows == channels * ex_factor);

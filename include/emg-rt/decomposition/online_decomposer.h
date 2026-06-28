@@ -3,6 +3,7 @@
 
 #include "emg-rt/buffer/signal_ring_buffer.h"
 #include "emg-rt/config/decomposition_config.h"
+#include "emg-rt/profiling/timer.h"
 #include "emg-rt/utils/types.h"
 
 #include <cstddef>
@@ -182,6 +183,7 @@ public:
 
   void decompose() {
     for (auto &grid : grids_) {
+      emg_rt::prof::ScopedTimer decomp_timer(emg_rt::prof::Section::decompose);
       grid.decompose(config_);
       grid.buffers().advance_output_heads(config_.samples_per_cycle);
     }
@@ -190,6 +192,7 @@ public:
   void init_grids(SignalRingBuffer &live_signal);
   void init_pulse_hist() {
     for (auto &grid : grids_) {
+      emg_rt::prof::ScopedTimer init_timer(emg_rt::prof::Section::init_pulse_t);
       grid.init_pulse_hist(config_);
       grid.buffers().advance_output_heads(config_.samples_per_cycle);
     }

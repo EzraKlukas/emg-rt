@@ -10,12 +10,12 @@
 //******************************************************************************
 
 #include "emg-rt/decomposition/is_local_max.h"
+#include "emg-rt/profiling/timer.h"
 #include "emg-rt/utils/types.h"
 
 #include <algorithm>
 #include <cassert>
 #include <cstdlib>
-#include <optional>
 
 using namespace emg_rt;
 
@@ -23,6 +23,9 @@ void incremental_is_local_max(const RingMatrix<float> &pulse_t,
                               RingMatrix<bool> &spikes, std::size_t new_samples,
                               std::vector<float> &maxima,
                               std::size_t min_lookahead_dist) {
+  emg_rt::prof::ScopedTimer is_local_max_timer(
+      emg_rt::prof::Section::is_local_max);
+
   std::size_t check_spike_idx = 0;
   for (std::size_t filter = 0; filter < pulse_t.rows; ++filter) {
     for (std::size_t new_sample = pulse_t.cols - new_samples;

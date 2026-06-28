@@ -48,6 +48,8 @@ target_compile_options(emg_rt_lib PRIVATE
     -g
 )
 
+target_compile_definitions(emg_rt_lib PRIVATE EMG_RT_ENABLE_PROFILING)
+
 add_executable(emg-rt
     src/main.cpp
 )

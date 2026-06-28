@@ -6,6 +6,7 @@
 #include "emg-rt/decomposition/is_local_max.h"
 #include "emg-rt/dsp/demean.h"
 #include "emg-rt/dsp/extend.h"
+#include "emg-rt/profiling/timer.h"
 #include "emg-rt/utils/types.h"
 
 #include <cstddef>
@@ -83,6 +84,7 @@ void GridDecomposer::init_pulse_hist(OnlineDecompositionConfig &config) {
  */
 void MultiGridDecomposer::get_samples(SignalRingBuffer &live_signal,
                                       size_t num_to_get) {
+  emg_rt::prof::ScopedTimer samp_timer(emg_rt::prof::Section::samp_from_ring);
   std::size_t grid_idx = 0;
   for (auto &grid : grids_) {
     for (size_t sample_idx = 0; sample_idx < num_to_get; ++sample_idx) {
