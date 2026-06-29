@@ -10,9 +10,10 @@ const std::string path_to_sig = "offline_data/emg.bin";
 
 int main(int argc, char *argv[]) {
   std::size_t num_decomp_cycles = 0;
+  size_t num_data_replays = 10;
   if (argc >= 2) {
     std::string str_arg_view(argv[1]);
-    num_decomp_cycles = static_cast<std::size_t>(std::stoull(str_arg_view));
+    num_data_replays = static_cast<std::size_t>(std::stoull(str_arg_view));
   }
 
   if (argc >= 3) {
@@ -46,20 +47,22 @@ int main(int argc, char *argv[]) {
     num_decomp_cycles = timestamps.size() - live_signal.size();
   }
 
-  for (size_t emg_count = live_signal.size();
-       emg_count < live_signal.size() + num_decomp_cycles;
-       emg_count = emg_count + decompose.config().samples_per_cycle) {
-    emg_rt::prof::ScopedTimer cycle_timer(emg_rt::prof::Section::cycle);
+  for (size_t data_replay_count = 0; data_replay_count < num_data_replays; ++data_replay_count) {
+    for (size_t emg_count = live_signal.size();
+         emg_count < live_signal.size() + num_decomp_cycles;
+         emg_count = emg_count + decompose.config().samples_per_cycle) {
+      emg_rt::prof::ScopedTimer cycle_timer(emg_rt::prof::Section::cycle);
 
-    live_signal.write_samples(
-        decompose.config().samples_per_cycle, &timestamps[emg_count],
-        &signal_source[emg_count * live_signal.num_channels()]);
-    decompose.get_samples(live_signal, decompose.config().samples_per_cycle);
-    if (emg_count - live_signal.size() <
-        decompose.config().min_lookback_samps) {
-      decompose.init_pulse_hist();
-    } else {
-      decompose.decompose();
+      live_signal.write_samples(
+          decompose.config().samples_per_cycle, &timestamps[emg_count],
+          &signal_source[emg_count * live_signal.num_channels()]);
+      decompose.get_samples(live_signal, decompose.config().samples_per_cycle);
+      if (emg_count - live_signal.size() <
+          decompose.config().min_lookback_samps) {
+        decompose.init_pulse_hist();
+      } else {
+        decompose.decompose();
+      }
     }
   }
   std::cout << emg_rt::prof::summarize_stats();
