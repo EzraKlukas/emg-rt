@@ -24,29 +24,29 @@ using namespace emg_rt;
 void get_pulse_train(RingMatrix<float> &pulse_t,
                      const RingMatrix<float> &emg_buffer,
                      MatrixView<float> mu_filters, VectorView<float> norm) {
-  emg_rt::prof::ScopedTimer pulse_train_timer(
-      emg_rt::prof::Section::pulse_train);
 
   std::size_t filters = mu_filters.extent(0);
   std::size_t samples = emg_buffer.cols;
   std::size_t extended_channels = emg_buffer.rows;
 
-  float tmp;
-
   assert(norm.extent(0) == filters);
   assert(mu_filters.extent(1) == extended_channels);
 
+  emg_rt::prof::ScopedTimer pulse_train_timer(
+      emg_rt::prof::Section::pulse_train);
   for (std::size_t filter = 0; filter < filters; ++filter) {
+    const float inv_norm = 1.0F / norm(filter);
+
     for (std::size_t sample = 0; sample < samples; ++sample) {
+      float acc = 0.0F;
+
       for (std::size_t extended_channel = 0;
            extended_channel < extended_channels; ++extended_channel) {
-        tmp = mu_filters(filter, extended_channel) *
-              emg_buffer(extended_channel, sample);
-        tmp *= std::abs(tmp);
-        tmp /= norm(filter);
-
-        pulse_t(filter, sample) += tmp;
+        acc += mu_filters(filter, extended_channel) *
+               emg_buffer(extended_channel, sample);
       }
+
+      pulse_t(filter, sample) = acc * std::abs(acc) * inv_norm;
     }
   }
 }
