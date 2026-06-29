@@ -4,8 +4,12 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
+#include <format>
 #include <limits>
+#include <string>
+#include <vector>
 
 #ifdef EMG_RT_ENABLE_PROFILING
 #define EMG_RT_PROFILE(section)                                                \
@@ -15,6 +19,9 @@
   do {                                                                         \
   } while (0)
 #endif
+
+inline constexpr std::size_t histogram_bins = 100;
+inline constexpr uint64_t ns_per_10us = 10000;
 
 namespace emg_rt::prof {
 
@@ -67,12 +74,15 @@ struct Stats {
   uint64_t sum_ns = 0;
   uint64_t min_ns = std::numeric_limits<uint64_t>::max();
   uint64_t max_ns = 0;
+  std::vector<uint64_t> histogram = std::vector<uint64_t>(histogram_bins);
 
   void add(uint64_t ns) noexcept {
     ++count;
     sum_ns += ns;
     min_ns = std::min(ns, min_ns);
     max_ns = std::max(ns, max_ns);
+    ++histogram[std::size_t(std::min(
+        histogram.size() - 1, std::size_t(std::llround(ns / ns_per_10us))))];
   }
 
   double mean_ns() const noexcept {
@@ -81,6 +91,37 @@ struct Stats {
 };
 
 inline std::array<Stats, static_cast<std::size_t>(Section::count)> stats{};
+
+// Helper to generate a text-based sparkline from a histogram
+static std::string make_sparkline(const std::vector<uint64_t> &histogram) {
+  if (histogram.empty()) {
+    return "";
+  }
+
+  // Find the highest bin to scale the graph properly
+  uint64_t max_val = *std::max_element(histogram.begin(), histogram.end());
+  if (max_val == 0) {
+    return std::string(histogram.size(), '_');
+  }
+
+  // Unicode block elements from empty/low to full block
+  const std::vector<std::string> blocks = {" ", " ", "▂", "▃", "▄",
+                                           "▅", "▆", "▇", "█"};
+  std::string sparkline;
+  sparkline.reserve(histogram.size() * 4); // Reserve space for UTF-8 chars
+
+  for (uint64_t val : histogram) {
+    if (val == 0) {
+      sparkline += "_"; // Clear visual marker for completely empty bins
+    } else {
+      // Scale value to index between 1 and 8
+      std::size_t idx =
+          1 + static_cast<std::size_t>(std::round((val * 7.0) / max_val));
+      sparkline += blocks[idx];
+    }
+  }
+  return sparkline;
+}
 
 inline std::string summarize_stats() {
   std::string formatted;
@@ -92,6 +133,7 @@ inline std::string summarize_stats() {
     formatted += std::format("min_ns: {:8} |", stat.min_ns);
     formatted += std::format("max_ns: {:8} |", stat.max_ns);
     formatted += std::format("mean_ns: {:7.2f}\n", stat.mean_ns());
+    formatted += std::format("dist: [{}]\n", make_sparkline(stat.histogram));
   }
   return formatted;
 }
