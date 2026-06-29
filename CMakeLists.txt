@@ -7,6 +7,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+find_package(Eigen3 3.3 REQUIRED NO_MODULE)
+
 find_package(yaml-cpp REQUIRED)
 
 if(TARGET yaml-cpp::yaml-cpp)
@@ -39,6 +41,7 @@ target_include_directories(emg_rt_lib PUBLIC
 
 target_link_libraries(emg_rt_lib PRIVATE
     ${YAML_CPP_TARGET}
+    Eigen3::Eigen
 )
 
 target_compile_options(emg_rt_lib PRIVATE
@@ -46,6 +49,9 @@ target_compile_options(emg_rt_lib PRIVATE
     -Wextra
     -Wpedantic
     -g
+    -O3
+    -DNDEBUG
+    -fno-math-errno
 )
 
 target_compile_definitions(emg_rt_lib PRIVATE EMG_RT_ENABLE_PROFILING)
@@ -56,11 +62,4 @@ add_executable(emg-rt
 
 target_link_libraries(emg-rt PRIVATE
     emg_rt_lib
-)
-
-target_compile_options(emg-rt PRIVATE
-    -Wall
-    -Wextra
-    -Wpedantic
-    -g
 )

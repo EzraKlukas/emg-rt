@@ -175,6 +175,11 @@ MultiGridDecomposer load_online_decomposer(const std::string &path_to_yaml) {
       std::vector<float> mu_filters = get_vector_from_bin(mu_filters_path);
       std::vector<float> filter_norms = get_vector_from_bin(filter_norms_path);
 
+      // invert filter_norms, will rename inv_norms on host
+      for (std::size_t i = 0; i < filter_norms.size(); ++i) {
+          filter_norms[i] = 1.0F / filter_norms[i];
+      }
+
       const std::size_t num_filters = filter_norms.size();
 
       if (num_filters == 0) {

@@ -13,8 +13,8 @@ public:
 
   std::size_t size() const { return size_; }
   std::size_t num_channels() const { return num_channels_; }
-  std::vector<float> signals() const { return signals_; }
-  std::vector<uint64_t> timestamps() const { return timestamps_; }
+  std::vector<float>& signals() noexcept { return signals_; }
+  std::vector<uint64_t>& timestamps() noexcept { return timestamps_; }
   std::size_t write_head() const { return write_head_; }
   std::size_t read_head() const { return read_head_; }
 

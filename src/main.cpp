@@ -10,9 +10,19 @@ const std::string path_to_sig = "offline_data/emg.bin";
 
 int main(int argc, char *argv[]) {
   std::size_t num_decomp_cycles = 0;
-  if (argc == 2) {
+  if (argc >= 2) {
     std::string str_arg_view(argv[1]);
     num_decomp_cycles = static_cast<std::size_t>(std::stoull(str_arg_view));
+  }
+
+  if (argc >= 3) {
+      std::string str_arg_view(argv[2]);
+      emg_rt::prof::histogram_bins = static_cast<std::size_t>(std::stoull(str_arg_view));
+  }
+
+  if (argc >= 4) {
+      std::string str_arg_view(argv[3]);
+      emg_rt::prof::ns_per_bin = static_cast<std::size_t>(std::stoull(str_arg_view));
   }
 
   MultiGridDecomposer decompose = load_online_decomposer(path_to_yaml);

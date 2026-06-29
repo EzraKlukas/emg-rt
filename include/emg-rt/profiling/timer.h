@@ -20,8 +20,8 @@
   } while (0)
 #endif
 
-inline constexpr std::size_t histogram_bins = 100;
-inline constexpr uint64_t ns_per_10us = 10000;
+#define NS_PER_BIN_DEFAULT 4000
+#define HISTOGRAM_BINS_DEFAULT 25
 
 namespace emg_rt::prof {
 
@@ -69,6 +69,9 @@ constexpr std::string_view section_to_string(Section s) {
   }
 }
 
+inline std::size_t histogram_bins = HISTOGRAM_BINS_DEFAULT;
+inline uint64_t ns_per_bin = NS_PER_BIN_DEFAULT;
+
 struct Stats {
   uint64_t count = 0;
   uint64_t sum_ns = 0;
@@ -82,7 +85,7 @@ struct Stats {
     min_ns = std::min(ns, min_ns);
     max_ns = std::max(ns, max_ns);
     ++histogram[std::size_t(std::min(
-        histogram.size() - 1, std::size_t(std::llround(ns / ns_per_10us))))];
+        histogram.size() - 1, std::size_t(std::llround(ns / ns_per_bin))))];
   }
 
   double mean_ns() const noexcept {
@@ -92,35 +95,19 @@ struct Stats {
 
 inline std::array<Stats, static_cast<std::size_t>(Section::count)> stats{};
 
-// Helper to generate a text-based sparkline from a histogram
-static std::string make_sparkline(const std::vector<uint64_t> &histogram) {
-  if (histogram.empty()) {
-    return "";
-  }
+inline std::string histogram_to_string(const std::vector<uint64_t>& histogram) {
+  std::string out = "[";
 
-  // Find the highest bin to scale the graph properly
-  uint64_t max_val = *std::max_element(histogram.begin(), histogram.end());
-  if (max_val == 0) {
-    return std::string(histogram.size(), '_');
-  }
+    for (std::size_t i = 0; i < histogram.size(); ++i) {
+        if (i != 0) {
+              out += ", ";
+            }
 
-  // Unicode block elements from empty/low to full block
-  const std::vector<std::string> blocks = {" ", " ", "▂", "▃", "▄",
-                                           "▅", "▆", "▇", "█"};
-  std::string sparkline;
-  sparkline.reserve(histogram.size() * 4); // Reserve space for UTF-8 chars
+        out += std::format("{}", histogram[i]);
+      }
 
-  for (uint64_t val : histogram) {
-    if (val == 0) {
-      sparkline += "_"; // Clear visual marker for completely empty bins
-    } else {
-      // Scale value to index between 1 and 8
-      std::size_t idx =
-          1 + static_cast<std::size_t>(std::round((val * 7.0) / max_val));
-      sparkline += blocks[idx];
-    }
-  }
-  return sparkline;
+      out += "]";
+  return out;
 }
 
 inline std::string summarize_stats() {
@@ -133,7 +120,7 @@ inline std::string summarize_stats() {
     formatted += std::format("min_ns: {:8} |", stat.min_ns);
     formatted += std::format("max_ns: {:8} |", stat.max_ns);
     formatted += std::format("mean_ns: {:7.2f}\n", stat.mean_ns());
-    formatted += std::format("dist: [{}]\n", make_sparkline(stat.histogram));
+    formatted += std::format("histogram, ({} ns / bin): {}\n", ns_per_bin, histogram_to_string(stat.histogram));
   }
   return formatted;
 }
