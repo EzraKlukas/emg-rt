@@ -81,6 +81,10 @@ public:
     return active_channels_;
   }
 
+  const std::vector<std::size_t> &samples_onset() const {
+    return samples_onset_;
+  }
+
   emg_rt::MatrixView<float> mu_filters_view() {
     return emg_rt::MatrixView<float>{
         mu_filters_.data(),
@@ -162,12 +166,12 @@ private:
 
   std::size_t grid_id_;
   std::vector<std::size_t> active_channels_;
+  std::vector<std::size_t> samples_onset_;
 
   std::vector<float> mu_filters_;
   std::vector<float> noise_centroids_;
   std::vector<float> spike_centroids_;
   std::vector<float> filter_norms_;
-  std::vector<std::size_t> samples_onset_;
 
   std::size_t num_filters_;
   std::size_t ex_factor_;

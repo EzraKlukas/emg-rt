@@ -30,6 +30,7 @@ void get_distime(RingMatrix<bool> &discharges, const RingMatrix<float> &pulse_t,
                  const RingMatrix<bool> &spikes,
                  const VectorView<float> &noise_centroids,
                  const VectorView<float> &spike_centroids,
+                 const std::vector<std::size_t> &samples_onset,
                  std::size_t new_samples, std::size_t min_lookahead_samps) {
   emg_rt::prof::ScopedTimer get_distime_timer(
       emg_rt::prof::Section::thresholding);
@@ -50,11 +51,11 @@ void get_distime(RingMatrix<bool> &discharges, const RingMatrix<float> &pulse_t,
       const float noise_dist = std::abs(sample_value - noise_centroids(filter));
       const float spike_dist = std::abs(sample_value - spike_centroids(filter));
 
+      // - samples_onset[filter] is the offline-measured sample delay between
+      // when a spike is triggered, and when physiologically for our purposes
+      // it's most accurate to say the discharge 'began'.
       if (noise_dist > spike_dist) {
-        // discharge_times[filter].push_back(sample); // was vector of vectors
-        discharges(filter, sample) = true;
-      } else {
-        discharges(filter, sample) = false;
+        discharges(filter, sample - samples_onset[filter]) = true;
       }
     }
   }

@@ -53,7 +53,7 @@ void GridDecomposer::decompose(OnlineDecompositionConfig &config) {
   incremental_is_local_max(buf.pulse_t, buf.spikes, config.samples_per_cycle,
                            buf.pulse_t_maxima, config.min_lookahead_samps);
   get_distime(buf.discharges, buf.pulse_t, buf.spikes, noise_centroids_view(),
-              spike_centroids_view(), config.samples_per_cycle,
+              spike_centroids_view(), samples_onset(), config.samples_per_cycle,
               config.min_lookahead_samps);
 }
 
