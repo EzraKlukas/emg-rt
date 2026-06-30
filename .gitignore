@@ -3,6 +3,9 @@ build/
 bin/
 out/
 
+# VIM / NVIM .swp files
+*.swp
+
 # C/C++ tooling and language server configurations
 .clangd
 compile_commands.json

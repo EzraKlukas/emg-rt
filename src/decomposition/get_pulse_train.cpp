@@ -16,7 +16,7 @@
 #include "emg-rt/profiling/timer.h"
 #include "emg-rt/utils/types.h"
 
-#include <eigen3/Eigen/Core>
+#include <Eigen/Core>
 
 #include <algorithm>
 #include <cassert>
@@ -90,6 +90,9 @@ void get_pulse_train(RingMatrix<float> &pulse_t,
     EigenMatrixMap Y(&pulse_t.data[y_phys_col * filters], ei(filters),
                      ei(chunk));
 
+    Eigen::Map<const Eigen::VectorXf, Eigen::Unaligned> inv_norm_map(
+                norm.data_handle(), ei(filters));
+
     // Y = W * X
     Y.noalias() = W * X;
 
@@ -98,7 +101,7 @@ void get_pulse_train(RingMatrix<float> &pulse_t,
 
     // Y(row, :) /= norm(row)
     for (std::size_t filter = 0; filter < filters; ++filter) {
-      Y.row(ei(filter)) *= norm(filter);
+        Y.row(ei(filter)).array() *= inv_norm_map.transpose().array();
     }
 
     done += chunk;
