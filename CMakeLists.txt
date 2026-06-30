@@ -44,14 +44,12 @@ target_link_libraries(emg_rt_lib PRIVATE
     Eigen3::Eigen
 )
 
-target_compile_options(emg_rt_lib PRIVATE
-    -Wall
-    -Wextra
-    -Wpedantic
-    -g
+target_compile_options(emg_rt_lib PRIVATE -mcpu=native
     -O3
     -DNDEBUG
+    -DEIGEN_NO_DEBUG
     -fno-math-errno
+    -fno-trapping-math
 )
 
 target_compile_definitions(emg_rt_lib PRIVATE EMG_RT_ENABLE_PROFILING)
