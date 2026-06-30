@@ -17,13 +17,15 @@ int main(int argc, char *argv[]) {
   }
 
   if (argc >= 3) {
-      std::string str_arg_view(argv[2]);
-      emg_rt::prof::histogram_bins = static_cast<std::size_t>(std::stoull(str_arg_view));
+    std::string str_arg_view(argv[2]);
+    emg_rt::prof::histogram_bins =
+        static_cast<std::size_t>(std::stoull(str_arg_view));
   }
 
   if (argc >= 4) {
-      std::string str_arg_view(argv[3]);
-      emg_rt::prof::ns_per_bin = static_cast<std::size_t>(std::stoull(str_arg_view));
+    std::string str_arg_view(argv[3]);
+    emg_rt::prof::ns_per_bin =
+        static_cast<std::size_t>(std::stoull(str_arg_view));
   }
 
   MultiGridDecomposer decompose = load_online_decomposer(path_to_yaml);

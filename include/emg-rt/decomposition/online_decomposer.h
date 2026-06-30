@@ -43,19 +43,21 @@ struct GridBuffers {
 
 class GridDecomposer {
 public:
-  GridDecomposer(std::size_t grid_id, std::vector<std::size_t> active_channels,
+  GridDecomposer(std::size_t grid_id,
+                 const std::vector<std::size_t> &active_channels,
+                 const std::vector<std::size_t> &samples_onset,
                  std::vector<float> mu_filters,
                  std::vector<float> noise_centroids,
                  std::vector<float> spike_centroids,
                  std::vector<float> filter_norms, std::size_t num_filters,
                  std::size_t ex_factor, std::size_t samples_per_cycle,
                  std::size_t demean_window_size, std::size_t min_lookback_ms)
-      : grid_id_(grid_id), active_channels_(std::move(active_channels)),
+      : grid_id_(grid_id), active_channels_(active_channels),
         mu_filters_(std::move(mu_filters)),
         noise_centroids_(std::move(noise_centroids)),
         spike_centroids_(std::move(spike_centroids)),
-        filter_norms_(std::move(filter_norms)), num_filters_(num_filters),
-        ex_factor_(ex_factor),
+        filter_norms_(std::move(filter_norms)), samples_onset_(samples_onset),
+        num_filters_(num_filters), ex_factor_(ex_factor),
         num_extended_channels_(ex_factor_ * active_channels_.size()),
         buffers_(samples_per_cycle, active_channels_.size(), ex_factor_,
                  num_filters_, demean_window_size, min_lookback_ms) {
@@ -165,6 +167,7 @@ private:
   std::vector<float> noise_centroids_;
   std::vector<float> spike_centroids_;
   std::vector<float> filter_norms_;
+  std::vector<std::size_t> samples_onset_;
 
   std::size_t num_filters_;
   std::size_t ex_factor_;

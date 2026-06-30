@@ -95,18 +95,18 @@ struct Stats {
 
 inline std::array<Stats, static_cast<std::size_t>(Section::count)> stats{};
 
-inline std::string histogram_to_string(const std::vector<uint64_t>& histogram) {
+inline std::string histogram_to_string(const std::vector<uint64_t> &histogram) {
   std::string out = "[";
 
-    for (std::size_t i = 0; i < histogram.size(); ++i) {
-        if (i != 0) {
-              out += ", ";
-            }
+  for (std::size_t i = 0; i < histogram.size(); ++i) {
+    if (i != 0) {
+      out += ", ";
+    }
 
-        out += std::format("{}", histogram[i]);
-      }
+    out += std::format("{}", histogram[i]);
+  }
 
-      out += "]";
+  out += "]";
   return out;
 }
 
@@ -120,7 +120,8 @@ inline std::string summarize_stats() {
     formatted += std::format("min_ns: {:8} |", stat.min_ns);
     formatted += std::format("max_ns: {:8} |", stat.max_ns);
     formatted += std::format("mean_ns: {:7.2f}\n", stat.mean_ns());
-    formatted += std::format("histogram, ({} ns / bin): {}\n", ns_per_bin, histogram_to_string(stat.histogram));
+    formatted += std::format("histogram, ({} ns / bin): {}\n", ns_per_bin,
+                             histogram_to_string(stat.histogram));
   }
   return formatted;
 }

@@ -166,6 +166,8 @@ MultiGridDecomposer load_online_decomposer(const std::string &path_to_yaml) {
 
       std::vector<std::size_t> active_channels =
           grid_node["active_channels"].as<std::vector<std::size_t>>();
+      std::vector<std::size_t> samples_onset =
+          grid_node["samples_onset"].as<std::vector<std::size_t>>();
 
       const std::string mu_filters_path =
           grid_node["mu_filters_path"].as<std::string>();
@@ -177,7 +179,7 @@ MultiGridDecomposer load_online_decomposer(const std::string &path_to_yaml) {
 
       // invert filter_norms, will rename inv_norms on host
       for (std::size_t i = 0; i < filter_norms.size(); ++i) {
-          filter_norms[i] = 1.0F / filter_norms[i];
+        filter_norms[i] = 1.0F / filter_norms[i];
       }
 
       const std::size_t num_filters = filter_norms.size();
@@ -233,11 +235,11 @@ MultiGridDecomposer load_online_decomposer(const std::string &path_to_yaml) {
       }
 
       grids.emplace_back(
-          grid_id, std::move(active_channels), std::move(mu_filters),
-          std::move(noise_centroids), std::move(spike_centroids),
-          std::move(filter_norms), num_filters, ex_factor,
-          online_config.samples_per_cycle, online_config.demean_window_size,
-          online_config.min_lookback_samps);
+          grid_id, std::move(active_channels), std::move(samples_onset),
+          std::move(mu_filters), std::move(noise_centroids),
+          std::move(spike_centroids), std::move(filter_norms), num_filters,
+          ex_factor, online_config.samples_per_cycle,
+          online_config.demean_window_size, online_config.min_lookback_samps);
     }
 
     return MultiGridDecomposer{online_config, std::move(grids)};

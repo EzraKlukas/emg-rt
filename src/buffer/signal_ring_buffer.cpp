@@ -50,7 +50,7 @@ void SignalRingBuffer::write_samples(size_t num_to_write,
 
 // Increments, but returns current. (postfix increment)
 size_t SignalRingBuffer::postfix_increment_read_head() {
-    const std::size_t old = read_head_;
+  const std::size_t old = read_head_;
 
   if (++read_head_ == size_) {
     read_head_ = 0;
