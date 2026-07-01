@@ -1,3 +1,43 @@
+/*
+ * Compile-time scoped profiling utilities.
+ *
+ * Use `EMG_RT_PROFILE(section)` at the beginning of a scope to measure how long
+ * that scope takes to execute. When profiling is enabled, the macro constructs
+ * a `ScopedTimer`. The timer records its start time on construction and adds
+ * the elapsed time to global profiling statistics when the scope exits.
+ *
+ * Example:
+ *
+ *   {
+ *     EMG_RT_PROFILE(emg_rt::prof::Section::pulse_train);
+ *     get_pulse_train(...);
+ *   }
+ *
+ * Profiling is controlled by the `EMG_RT_ENABLE_PROFILING` compile definition:
+ *
+ *   - enabled:  `EMG_RT_PROFILE(...)` creates a real scoped timer
+ *   - disabled: `EMG_RT_PROFILE(...)` compiles to a no-op
+ *
+ * This lets profiling markers remain in the source code without adding timing
+ * overhead to normal builds.
+ *
+ * The collected statistics include:
+ *
+ *   - call count
+ *   - minimum elapsed time
+ *   - maximum elapsed time
+ *   - mean elapsed time
+ *   - histogram counts
+ *
+ * Print the accumulated results with:
+ *
+ *   std::cout << emg_rt::prof::summarize_stats();
+ *
+ * Note: a timer only records its result when its scope exits. If you profile
+ * the whole body of `main`, print the summary after the timer's scope has
+ * ended.
+ */
+
 #ifndef TIMER_H
 #define TIMER_H
 
@@ -11,9 +51,13 @@
 #include <string>
 #include <vector>
 
+#define EMG_RT_CONCAT_IMPL(x, y) x##y
+#define EMG_RT_CONCAT(x, y) EMG_RT_CONCAT_IMPL(x, y)
+
 #ifdef EMG_RT_ENABLE_PROFILING
 #define EMG_RT_PROFILE(section)                                                \
-  emg_rt::prof::ScopedTimer timer_##__LINE__(section)
+  emg_rt::prof::ScopedTimer EMG_RT_CONCAT(_emg_rt_prof_timer_,                 \
+                                          __LINE__)(section)
 #else
 #define EMG_RT_PROFILE(section)                                                \
   do {                                                                         \
@@ -29,7 +73,7 @@ enum class Section : std::uint8_t {
   cycle,
   ring_write,
   samp_from_ring,
-  init_pulse_t,
+  init_pulse_train,
   extend,
   demean,
   pulse_train,
@@ -39,7 +83,6 @@ enum class Section : std::uint8_t {
   count
 };
 
-// Map enum values to string literals
 constexpr std::string_view section_to_string(Section s) {
   switch (s) {
   case Section::cycle:
@@ -48,7 +91,7 @@ constexpr std::string_view section_to_string(Section s) {
     return "ring_write";
   case Section::samp_from_ring:
     return "samp_from_ring";
-  case Section::init_pulse_t:
+  case Section::init_pulse_train:
     return "init_pulse_t";
   case Section::extend:
     return "extend";
@@ -69,6 +112,7 @@ constexpr std::string_view section_to_string(Section s) {
   }
 }
 
+// histogram_bins: the number of time buckets to profile a scope's runtime into
 inline std::size_t histogram_bins = HISTOGRAM_BINS_DEFAULT;
 inline uint64_t ns_per_bin = NS_PER_BIN_DEFAULT;
 
@@ -79,6 +123,7 @@ struct Stats {
   uint64_t max_ns = 0;
   std::vector<uint64_t> histogram = std::vector<uint64_t>(histogram_bins);
 
+  // Logs ns (representing time elapsed in a ScopeTimer's life) to Stats.
   void add(uint64_t ns) noexcept {
     ++count;
     sum_ns += ns;
@@ -93,6 +138,7 @@ struct Stats {
   }
 };
 
+// This is the persistent global object storing persistent profiling data.
 inline std::array<Stats, static_cast<std::size_t>(Section::count)> stats{};
 
 inline std::string histogram_to_string(const std::vector<uint64_t> &histogram) {
@@ -133,6 +179,9 @@ inline uint64_t now_ns() noexcept {
       .count();
 }
 
+// This is the object which survives only the scope in which it's initialized,
+// but who writes its profiling data contribution to the stats global object
+// upon going out of scope.
 struct ScopedTimer {
   Section section;
   uint64_t start_ns;

@@ -1,4 +1,46 @@
-#include "emg-rt/buffer/signal_ring_buffer.h"
+/*
+ * Offline replay entry point for the real-time EMG decomposition pipeline.
+ *
+ * This executable currently uses recorded EMG data from disk instead of live
+ * sensor input. The purpose is to exercise the same online pipeline that will
+ * eventually run on the Jetson with live acquisition.
+ *
+ * The important architectural boundary is `SignalRingBuffer`.
+ *
+ * Offline replay and live acquisition should meet at this same interface:
+ *
+ *   1. A producer writes timestamped raw samples into `SignalRingBuffer`.
+ *      Today, that producer is `pull_samples_from_bin`.
+ *      Later, it will be the sensor/acquisition thread.
+ *
+ *   2. The decomposer reads recent samples out of `SignalRingBuffer`.
+ *      From this point onward, the pipeline should not care whether the
+ *      samples came from a file or from hardware.
+ *
+ * The program flow is:
+ *
+ *   - Load decomposition parameters and trained motor-unit filters from YAML.
+ *   - Allocate a raw sample ring buffer large enough to hold the recent history
+ *     needed for demeaning and temporal extension.
+ *   - Load offline EMG samples and generate replay timestamps.
+ *   - Pre-fill the raw acquisition ring so the decomposer has enough history
+ * before the first cycle.
+ *   - Initialize each grid's internal decomposition workspace from the raw
+ *     sample ring.
+ *   - Repeatedly write new samples into the ring and run one online
+ *     decomposition cycle.
+ *
+ * The command-line arguments are currently used for profiling experiments:
+ *
+ *   argv[1] : number of times to replay the offline data
+ *   argv[2] : number of profiling histogram bins
+ *   argv[3] : nanoseconds per profiling histogram bin
+ *
+ * This file is best understood as a temporary replay harness around
+ * the real online decomposition code, not as the final live acquisition system.
+ */
+
+#include "emg-rt/buffer/acquisition_ring_buffer.h"
 #include "emg-rt/config/decomposition_config.h"
 #include "emg-rt/data_replay/offline_emg_source.h"
 #include "emg-rt/decomposition/online_decomposer.h"
@@ -8,8 +50,12 @@
 const std::string path_to_yaml = "offline_params/decomposition_config.yaml";
 const std::string path_to_sig = "offline_data/emg.bin";
 
+using namespace emg_rt;
+
 int main(int argc, char *argv[]) {
-  std::size_t num_decomp_cycles = 0;
+  // Process commandline arguments
+  // num_data_replays: number of times to replay all the given offline data in a
+  // test.
   size_t num_data_replays = 10;
   if (argc >= 2) {
     std::string str_arg_view(argv[1]);
@@ -18,49 +64,50 @@ int main(int argc, char *argv[]) {
 
   if (argc >= 3) {
     std::string str_arg_view(argv[2]);
-    emg_rt::prof::histogram_bins =
-        static_cast<std::size_t>(std::stoull(str_arg_view));
+    prof::histogram_bins = static_cast<std::size_t>(std::stoull(str_arg_view));
   }
 
   if (argc >= 4) {
     std::string str_arg_view(argv[3]);
-    emg_rt::prof::ns_per_bin =
-        static_cast<std::size_t>(std::stoull(str_arg_view));
+    prof::ns_per_bin = static_cast<std::size_t>(std::stoull(str_arg_view));
   }
 
   MultiGridDecomposer decompose = load_online_decomposer(path_to_yaml);
   // std::cout << format_online_params(decompose) << std::flush;
 
-  SignalRingBuffer live_signal =
-      SignalRingBuffer(decompose.config().demean_window_size * 2,
-                       decompose.grids().size() * channels_per_grid);
+  buffer::AcquisitionRingBuffer acquisition_buffer =
+      buffer::AcquisitionRingBuffer(decompose.config().demean_window_size * 2,
+                                    decompose.grids().size() *
+                                        channels_per_grid);
 
-  std::vector<uint16_t> signal_source =
-      pull_samples_from_bin<uint16_t>(path_to_sig);
-  std::vector<uint64_t> timestamps =
-      generate_timestamps(signal_source.size() / live_signal.num_channels());
+  std::vector<uint16_t> offline_raw_samples =
+      replay::pull_samples_from_bin<uint16_t>(path_to_sig);
+  std::vector<uint64_t> timestamps = replay::generate_replay_timestamps(
+      offline_raw_samples.size() / acquisition_buffer.num_channels());
 
   // fully load live_signal initially and then perform decompose.init_grids.
-  live_signal.write_samples(live_signal.size(), timestamps.data(),
-                            signal_source.data());
-  decompose.init_grids(live_signal);
+  acquisition_buffer.write_samples(acquisition_buffer.size(), timestamps.data(),
+                                   offline_raw_samples.data());
+  decompose.init_grids(acquisition_buffer);
 
+  std::size_t num_decomp_cycles = 0;
   if (num_decomp_cycles == 0) {
-    num_decomp_cycles = timestamps.size() - live_signal.size();
+    num_decomp_cycles = timestamps.size() - acquisition_buffer.size();
   }
 
   for (size_t data_replay_count = 0; data_replay_count < num_data_replays;
        ++data_replay_count) {
-    for (size_t emg_count = live_signal.size();
-         emg_count < live_signal.size() + num_decomp_cycles;
+    for (size_t emg_count = acquisition_buffer.size();
+         emg_count < acquisition_buffer.size() + num_decomp_cycles;
          emg_count = emg_count + decompose.config().samples_per_cycle) {
-      emg_rt::prof::ScopedTimer cycle_timer(emg_rt::prof::Section::cycle);
+      EMG_RT_PROFILE(prof::Section::cycle);
 
-      live_signal.write_samples(
+      acquisition_buffer.write_samples(
           decompose.config().samples_per_cycle, &timestamps[emg_count],
-          &signal_source[emg_count * live_signal.num_channels()]);
-      decompose.get_samples(live_signal, decompose.config().samples_per_cycle);
-      if (emg_count - live_signal.size() <
+          &offline_raw_samples[emg_count * acquisition_buffer.num_channels()]);
+      decompose.get_samples(acquisition_buffer,
+                            decompose.config().samples_per_cycle);
+      if (emg_count - acquisition_buffer.size() <
           decompose.config().min_lookback_samps) {
         decompose.init_pulse_hist();
       } else {
@@ -68,5 +115,8 @@ int main(int argc, char *argv[]) {
       }
     }
   }
-  std::cout << emg_rt::prof::summarize_stats();
+#ifdef EMG_RT_ENABLE_PROFILING
+  std::ofstream out("profiling_summary.txt");
+  std::cout << prof::summarize_stats();
+#endif
 }

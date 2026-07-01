@@ -1,3 +1,22 @@
+/*
+ * Small formatting helpers for debugging and diagnostics.
+ *
+ * These functions convert vectors, vector-like views, and matrix-like views
+ * into strings. They are intended for logging, debugging, configuration
+ * inspection, and profiling output. They are not part of the real-time
+ * decomposition path.
+ *
+ * The overloads are intentionally generic:
+ *
+ *   - `format_std_vector` handles ordinary `std::vector<T>`.
+ *   - `format_vector` handles vector views with `extent(0)` and `operator()`.
+ *   - `format_matrix` handles matrix views with `extent(0)`, `extent(1)`, and
+ *     `operator(row, col)`.
+ *
+ * Keeping this code separate avoids mixing human-readable diagnostics into the
+ * core decomposition kernels.
+ */
+
 #ifndef EMG_RT_FORMATTING_H
 #define EMG_RT_FORMATTING_H
 

@@ -1,8 +1,28 @@
-// *****************************************************************************
-// Pulls decomposition parameters from .yaml configuration file, including an
-// arbitrary number of grids, pulling denser data from .bin files referenced in
-// .yaml.
-// *****************************************************************************
+/*
+ * Load online decomposition parameters and trained grid data from YAML.
+ *
+ * This file bridges the offline training/export pipeline and the C++ online
+ * runtime. The YAML file describes the global online timing parameters and an
+ * arbitrary number of EMG grids. For each grid, the loader reads metadata from
+ * YAML and denser numeric arrays from binary files.
+ *
+ * Loaded per-grid data includes:
+ *
+ *   - active physical channels
+ *   - motor-unit filters
+ *   - spike/noise centroids
+ *   - filter normalization values
+ *   - sample-onset offsets
+ *
+ * The loader performs shape checks while constructing each `GridDecomposer`.
+ * These checks are important because most decomposition data is stored as flat
+ * binary arrays. Without explicit validation, a mismatch between the YAML
+ * metadata and the binary files could silently produce incorrect matrix views.
+ *
+ * The returned `MultiGridDecomposer` owns all loaded configuration, filters,
+ * centroids, normalization values, and per-grid decomposer objects needed by
+ * the online loop.
+ */
 
 #include "emg-rt/decomposition/online_decomposer.h"
 #include "emg-rt/utils/formatting.h"
@@ -75,7 +95,8 @@ static std::string format_size_vector(const std::vector<std::size_t> &values) {
   return out.str();
 }
 
-static OnlineDecompositionConfig parse_online_config(const YAML::Node &config) {
+static config::OnlineDecompositionConfig
+parse_online_config(const YAML::Node &config) {
   if (!config["sampling_frequency"]) {
     throw std::runtime_error("Missing sampling_frequency");
   }
@@ -100,7 +121,7 @@ static OnlineDecompositionConfig parse_online_config(const YAML::Node &config) {
     throw std::runtime_error("Missing demean_window_size");
   }
 
-  OnlineDecompositionConfig online_config;
+  config::OnlineDecompositionConfig online_config;
 
   online_config.sampling_frequency = config["sampling_frequency"].as<float>();
   online_config.decomposition_frequency =
@@ -142,7 +163,8 @@ static void split_centroids(const std::vector<float> &centroids,
                          centroids.end());
 }
 
-MultiGridDecomposer load_online_decomposer(const std::string &path_to_yaml) {
+emg_rt::MultiGridDecomposer
+emg_rt::load_online_decomposer(const std::string &path_to_yaml) {
   try {
     YAML::Node config = YAML::LoadFile(path_to_yaml);
 
@@ -150,7 +172,8 @@ MultiGridDecomposer load_online_decomposer(const std::string &path_to_yaml) {
       throw std::runtime_error("Missing grids");
     }
 
-    const OnlineDecompositionConfig online_config = parse_online_config(config);
+    const config::OnlineDecompositionConfig online_config =
+        parse_online_config(config);
 
     YAML::Node grids_node = config["grids"];
 
@@ -158,7 +181,7 @@ MultiGridDecomposer load_online_decomposer(const std::string &path_to_yaml) {
       throw std::runtime_error("'grids' must be a YAML list.");
     }
 
-    std::vector<GridDecomposer> grids;
+    std::vector<emg_rt::GridDecomposer> grids;
     grids.reserve(grids_node.size());
 
     for (const YAML::Node &grid_node : grids_node) {
@@ -176,13 +199,14 @@ MultiGridDecomposer load_online_decomposer(const std::string &path_to_yaml) {
 
       std::vector<float> mu_filters = get_vector_from_bin(mu_filters_path);
       std::vector<float> filter_norms = get_vector_from_bin(filter_norms_path);
+      std::vector<float> inv_filter_norms(filter_norms.size());
 
       // invert filter_norms, will rename inv_norms on host
       for (std::size_t i = 0; i < filter_norms.size(); ++i) {
-        filter_norms[i] = 1.0F / filter_norms[i];
+        inv_filter_norms[i] = 1.0F / filter_norms[i];
       }
 
-      const std::size_t num_filters = filter_norms.size();
+      const std::size_t num_filters = inv_filter_norms.size();
 
       if (num_filters == 0) {
         throw std::runtime_error(
@@ -237,12 +261,12 @@ MultiGridDecomposer load_online_decomposer(const std::string &path_to_yaml) {
       grids.emplace_back(
           grid_id, std::move(active_channels), std::move(samples_onset),
           std::move(mu_filters), std::move(noise_centroids),
-          std::move(spike_centroids), std::move(filter_norms), num_filters,
+          std::move(spike_centroids), std::move(inv_filter_norms), num_filters,
           ex_factor, online_config.samples_per_cycle,
           online_config.demean_window_size, online_config.min_lookback_samps);
     }
 
-    return MultiGridDecomposer{online_config, std::move(grids)};
+    return emg_rt::MultiGridDecomposer{online_config, std::move(grids)};
 
   } catch (const YAML::BadFile &) {
     throw std::runtime_error(std::format(
@@ -254,10 +278,11 @@ MultiGridDecomposer load_online_decomposer(const std::string &path_to_yaml) {
   }
 }
 
-std::string format_online_params(const MultiGridDecomposer &decomposer) {
+std::string
+emg_rt::format_online_params(const emg_rt::MultiGridDecomposer &decomposer) {
   std::string formatted_params;
 
-  const OnlineDecompositionConfig &config = decomposer.config();
+  const config::OnlineDecompositionConfig &config = decomposer.config();
 
   formatted_params +=
       std::format("Sampling frequency: {}\n", config.sampling_frequency);
@@ -288,8 +313,8 @@ std::string format_online_params(const MultiGridDecomposer &decomposer) {
                                     format_vector(grid.noise_centroids_view()));
     formatted_params += std::format("Spike centroids: {}\n",
                                     format_vector(grid.spike_centroids_view()));
-    formatted_params += std::format("Filter norms: {}\n",
-                                    format_vector(grid.filter_norms_view()));
+    formatted_params += std::format(
+        "Filter norms: {}\n", format_vector(grid.inv_filter_norms_view()));
     // formatted_params += std::format("Motor Unit Filters: {}\n",
     //                                format_matrix(grid.mu_filters_view()));
   }
