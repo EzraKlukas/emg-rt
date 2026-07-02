@@ -27,7 +27,7 @@
  * required lookahead context.
  */
 
-#include "emg-rt/decomposition/get_discharge_t.h"
+#include "emg-rt/decomposition/classify_discharges.h"
 #include "emg-rt/profiling/timer.h"
 #include "emg-rt/utils/types.h"
 

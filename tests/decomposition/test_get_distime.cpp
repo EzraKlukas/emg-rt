@@ -6,8 +6,8 @@
 
 #include <vector>
 
-TEST_CASE(
-    "get_distime keeps spikes closer to spike centroid than noise centroid") {
+TEST_CASE("classify_discharges keeps spikes closer to spike centroid than "
+          "noise centroid") {
   auto pulse = emg_rt::tests::matrix_from_rows<float>({
       {0.1F, 0.9F, 1.2F},
       {0.2F, 2.8F, 3.1F},
@@ -38,7 +38,7 @@ TEST_CASE(
   CHECK(discharges(1, 2));
 }
 
-TEST_CASE("get_distime writes discharge at onset-adjusted sample") {
+TEST_CASE("classify_discharges writes discharge at onset-adjusted sample") {
   auto pulse = emg_rt::tests::matrix_from_rows<float>({
       {0.0F, 0.0F, 0.9F, 0.1F},
   });

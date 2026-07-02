@@ -98,11 +98,11 @@ constexpr std::string_view section_to_string(Section s) {
   case Section::demean:
     return "demean";
   case Section::pulse_train:
-    return "pulse_train (get_pulse_t)";
+    return "pulse_train (get_pulse_train)";
   case Section::is_local_max:
     return "is_local_max";
   case Section::thresholding:
-    return "thresholding (get_discharge_t)";
+    return "thresholding (classify_discharges)";
   case Section::decompose:
     return "decompose";
   case Section::count:
