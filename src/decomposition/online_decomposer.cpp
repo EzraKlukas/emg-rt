@@ -6,16 +6,20 @@
  *
  * Initialization:
  *
- *   - `GridDecomposer::init_buffers` copies enough recent raw samples from the
- *     acquisition ring into each grid's active-channel signal buffer.
+ *   - `GridDecomposer::init_workspace` copies enough recent raw samples from
+ *     the acquisition ring into each grid's active-channel signal buffer using
+ *     that grid's acquisition gather mask. It also initializes the grid's
+ *     acquisition index and timestamp windows.
  *
  *   - `MultiGridDecomposer::init_grids` initializes every grid and computes the
  *     initial rolling sums used for demeaning.
  *
  * Per-cycle operation:
  *
- *   - `MultiGridDecomposer::get_samples` reads new raw samples from
- *     `SignalRingBuffer` into each grid's working signal buffer.
+ *   - `MultiGridDecomposer::read_samples` reads the next unread raw samples
+ *     from `AcquisitionRingBuffer` into each grid's working signal buffer.
+ *     It uses `last_index_read` rather than advancing a shared acquisition
+ *     read head.
  *
  *   - `GridDecomposer::decompose` runs the actual decomposition stages:
  *
@@ -25,7 +29,7 @@
  *       4. find candidate local maxima
  *       5. classify candidate maxima as discharges or non-discharges
  *
- *   - `GridBuffers::advance_output_heads` advances the circular output buffers
+ *   - `GridWorkspace::advance_output_heads` advances the circular output buffers
  *     after each cycle so pulse trains, spike masks, and discharge masks remain
  *     aligned.
  *
@@ -113,8 +117,11 @@ void GridDecomposer::init_pulse_hist(
 }
 
 /*
- * Modifies:
- * live_signal.read_head() -> contractually the only place it's read!
+ * Reads the same acquisition-index range into every grid workspace.
+ *
+ * Each grid gathers its own source streams from the full acquisition sample.
+ * `last_index_read` is updated once per batch and reused for all grids so their
+ * workspaces stay aligned to the same acquisition indices.
  */
 void MultiGridDecomposer::read_samples(
     buffer::AcquisitionRingBuffer &acquisition_buffer, size_t num_to_read) {

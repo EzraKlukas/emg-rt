@@ -5,15 +5,22 @@
  * sensor input. The purpose is to exercise the same online pipeline that will
  * eventually run on the Jetson with live acquisition.
  *
- * The important architectural boundary is `SignalRingBuffer`.
+ * The important architectural boundary is the acquisition buffer. Offline
+ * replay writes into an `AcquisitionRingBuffer`; live acquisition is expected
+ * to meet the decomposition code at the same boundary.
+ *
+ * The broader acquisition model also includes `SensorBufferConfig` and
+ * `AcquisitionFrameBuffer`, which can own EMG, IMU, and ADC rings in parallel.
+ * This replay harness currently constructs only the EMG ring used by the
+ * decomposer.
  *
  * Offline replay and live acquisition should meet at this same interface:
  *
- *   1. A producer writes timestamped raw samples into `SignalRingBuffer`.
- *      Today, that producer is `pull_samples_from_bin`.
- *      Later, it will be the sensor/acquisition thread.
+ *   1. A producer writes timestamped raw samples into an acquisition ring.
+ *      Today, that producer is `pull_samples_from_bin`. Later, it should be the
+ *      sensor/acquisition thread.
  *
- *   2. The decomposer reads recent samples out of `SignalRingBuffer`.
+ *   2. The decomposer reads indexed samples out of the acquisition ring.
  *      From this point onward, the pipeline should not care whether the
  *      samples came from a file or from hardware.
  *
@@ -25,8 +32,8 @@
  *   - Load offline EMG samples and generate replay timestamps.
  *   - Pre-fill the raw acquisition ring so the decomposer has enough history
  * before the first cycle.
- *   - Initialize each grid's internal decomposition workspace from the raw
- *     sample ring.
+ *   - Initialize each grid's internal decomposition workspace from the newest
+ *     samples in the raw sample ring.
  *   - Repeatedly write new samples into the ring and run one online
  *     decomposition cycle.
  *
@@ -36,8 +43,10 @@
  *   argv[2] : number of profiling histogram bins
  *   argv[3] : nanoseconds per profiling histogram bin
  *
- * This file is best understood as a temporary replay harness around
- * the real online decomposition code, not as the final live acquisition system.
+ * This file is best understood as a temporary replay harness around the real
+ * online decomposition code, not as the final live acquisition system. It does
+ * not implement hardware timestamping, thread synchronization, or multi-rate
+ * sensor alignment.
  */
 
 #include "emg-rt/buffer/acquisition_ring_buffer.h"
@@ -89,7 +98,7 @@ int main(int argc, char *argv[]) {
   std::vector<uint64_t> timestamps = replay::generate_replay_timestamps(
       offline_raw_samples.size() / acquisition_buffer.num_streams());
 
-  // fully load live_signal initially and then perform decompose.init_grids.
+  // Pre-fill the acquisition ring before initializing grid workspaces.
   acquisition_buffer.write_samples(acquisition_buffer.size(), timestamps.data(),
                                    offline_raw_samples.data());
   decompose.init_grids(acquisition_buffer);

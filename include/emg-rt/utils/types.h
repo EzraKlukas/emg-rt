@@ -1,15 +1,32 @@
+/*
+ * Contiguous matrix, vector, and ring-buffer utility types.
+ *
+ * The decomposition code stores numeric data in `std::vector` and exposes it
+ * through lightweight views. `MatrixView` and `VectorView` are non-owning; the
+ * caller must keep the underlying storage alive and avoid concurrent mutation
+ * without synchronization.
+ *
+ * `RingMatrix` and `RingVector` own fixed-size circular windows. Logical index
+ * zero is the oldest retained element and `head` points at its physical
+ * location. `RingMatrix` stores column-major data so one logical sample column
+ * is contiguous in memory.
+ *
+ * `RingMatrix::write_column(column, mask)` appends one logical column by
+ * gathering from source stream indices: destination row `stream` receives
+ * `column[mask[stream]]`. The mask is therefore an index map, not a boolean
+ * mask. After writing, the ring head advances and the oldest logical column is
+ * overwritten.
+ *
+ * These types allocate in their constructors and do not allocate during indexed
+ * access or column writes, but they do not provide thread safety.
+ */
+
 #ifndef EMG_RT_TYPES_H
 #define EMG_RT_TYPES_H
 
 #include <cstddef>
 #include <cstdint>
 #include <vector>
-
-/*
- * Strictly necessary for decomposition because it defines the type that is the
- * application interface for all dealing with matrices and vectors that are
- * underneath stored as 1D contiguous std::vectors.
- */
 
 namespace emg_rt {
 
@@ -76,7 +93,7 @@ template <typename T> struct RingMatrix {
     return data[(((head + logical_col) % cols) * rows) + row];
   }
 
-  // Append one new column on the right, overwriting the oldest column.
+  // Append one gathered column on the right, overwriting the oldest column.
   void write_column(const T *column, const std::vector<std::size_t> &mask) {
     std::size_t write_col = head; // overwrite oldest physical column
 

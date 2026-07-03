@@ -1,27 +1,39 @@
 ## Pipeline overview
 
-The project is structured around one boundary: `SignalRingBuffer`.
+The project is structured around the acquisition buffer boundary.
 
-Raw EMG samples enter the system through this buffer. Today, those samples come
-from an offline binary file for replay. Later, they should come from a live
-acquisition thread on the Jetson. Once samples are in the ring buffer, the rest
-of the decomposition pipeline is intended to be the same.
+Raw sensor samples enter the system through `AcquisitionRingBuffer`. One
+`AcquisitionRingBuffer` stores a fixed-duration circular buffer for one sensor
+type, while `AcquisitionFrameBuffer` owns the parallel EMG, IMU, and ADC
+buffers. Today, EMG samples come from an offline binary file for replay. Later,
+they should come from a live acquisition thread on the Jetson. Once samples are
+in the acquisition buffer, the decomposition pipeline is intended to be the same.
 
 The online decomposition path is:
 
-1. Write timestamped raw samples into `SignalRingBuffer`.
-2. Copy the newest samples for each grid into that grid's working buffer.
-3. Temporally extend the grid signal by stacking delayed copies of active
+1. Write timestamped raw samples into an `AcquisitionRingBuffer`.
+2. Convert raw `uint16_t` values to stored floating-point samples while writing;
+   the current EMG replay path uses the Intan/RHD microvolt conversion and this
+   should not be assumed valid for every sensor type.
+3. Use each grid's `AcquisitionMask` to gather selected source stream indices
+   into that grid's dense working buffer.
+4. Temporally extend the grid signal by stacking delayed copies of active
    channels.
-4. Demean each extended row using rolling historical sums.
-5. Project trained motor-unit filters to produce pulse trains.
-6. Detect candidate local maxima in each pulse train.
-7. Classify candidates as discharges using trained spike/noise centroids.
+5. Demean each extended row using rolling historical sums.
+6. Project trained motor-unit filters to produce pulse trains.
+7. Detect candidate local maxima in each pulse train.
+8. Classify candidates as discharges using trained spike/noise centroids.
 
-`SignalRingBuffer` stores raw acquisition-facing data.
+`AcquisitionRingBuffer` stores acquisition-facing data for one sensor type in
+sample-major order, with sample indices and timestamps alongside signal values.
 
-`GridBuffers` / `GridWorkspace` stores per-grid decomposition working memory.
+`GridWorkspace` stores per-grid decomposition working memory, including the
+gathered raw grid window, acquisition indices, timestamps, extended signals,
+pulse trains, and classification masks.
 
 The offline replay code is therefore not a separate algorithm. It is only a
 temporary producer that lets the online decomposition pipeline be tested before
-live sensor integration.
+live sensor integration. The current code does not claim full thread safety or
+multi-rate sensor synchronization; ownership and synchronization rules still
+need to be made explicit before using the acquisition buffers as live
+producer/consumer queues.

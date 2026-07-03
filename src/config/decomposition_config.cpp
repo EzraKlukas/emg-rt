@@ -13,15 +13,21 @@
  *   - spike/noise centroids
  *   - filter normalization values
  *   - sample-onset offsets
+ *   - acquisition gather masks for each grid's active source streams
  *
  * The loader performs shape checks while constructing each `GridDecomposer`.
  * These checks are important because most decomposition data is stored as flat
  * binary arrays. Without explicit validation, a mismatch between the YAML
  * metadata and the binary files could silently produce incorrect matrix views.
  *
+ * Active channels in YAML are grid-local. The loader offsets them into global
+ * source stream indices and stores them in each grid's `AcquisitionMask`, which
+ * is later used to gather from the full EMG acquisition sample into that
+ * grid's dense workspace.
+ *
  * The returned `MultiGridDecomposer` owns all loaded configuration, filters,
- * centroids, normalization values, and per-grid decomposer objects needed by
- * the online loop.
+ * centroids, normalization values, acquisition masks, and per-grid decomposer
+ * objects needed by the online loop.
  */
 
 #include "emg-rt/buffer/acquisition_ring_buffer.h"

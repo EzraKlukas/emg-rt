@@ -124,7 +124,7 @@ void decomp::get_pulse_train(RingMatrix<float> &pulse_train,
     // Y = Y .* abs(Y)
     Y.array() = Y.array() * Y.array().abs();
 
-    // Y(row, :) /= norm(row)
+    // Y(row, :) *= inv_filter_norm(row)
     for (std::size_t filter = 0; filter < filters; ++filter) {
       Y.row(ei(filter)).array() *= inv_norm_map.transpose().array();
     }

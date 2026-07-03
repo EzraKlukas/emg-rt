@@ -11,23 +11,26 @@
  *      Owns the trained data and working buffers for one EMG grid:
  *
  *        - active channel list
+ *        - acquisition gather mask for the grid's source streams
  *        - motor-unit filters
  *        - spike/noise centroids
  *        - inverse filter normalization values
- *        - per-grid signal, extended-signal, pulse-train, spike, and discharge
- *          buffers
+ *        - per-grid acquisition-index, timestamp, signal, extended-signal,
+ *          pulse-train, spike, and discharge buffers
  *
  *      A grid decomposer operates only on the channels belonging to its grid.
  *
  *   2. `MultiGridDecomposer`
  *
  *      Owns the global online configuration and a collection of
- *      `GridDecomposer` objects. It is the high-level object used by `main`.
+ *      `GridDecomposer` objects. It tracks a caller-visible `last_index_read`
+ *      and is the high-level object used by `main`.
  *
  * The data path is:
  *
- *   SignalRingBuffer
- *       -> GridDecomposer::workspace().raw_grid_window
+ *   AcquisitionRingBuffer
+ *       -> AcquisitionMask gather
+ *       -> GridWorkspace::raw_grid_window, indices, timestamps
  *       -> temporal extension
  *       -> demeaning
  *       -> pulse train projection
@@ -38,11 +41,14 @@
  * goal is to avoid allocating temporary vectors or matrices during each
  * decomposition cycle.
  *
- * Naming note:
+ * Acquisition reads are index based. A grid workspace is initialized from the
+ * newest retained samples with `read_latest_samples`; later cycles use
+ * `MultiGridDecomposer::last_index_read` and `read_samples` to copy only the
+ * next unread samples. There is no shared acquisition read head.
  *
- *   `AcquisitionRingBuffer` stores raw physical-channel samples from
- * acquisition. `GridWorkspace` stores internal per-grid decomposition
- * workspace. These are intentionally different layers of the pipeline.
+ * The decomposer assumes the acquisition buffer is already filled with enough
+ * retained history for temporal extension and demeaning. It does not implement
+ * producer/consumer synchronization or multi-rate sensor alignment.
  */
 
 #ifndef ONLINE_DECOMPOSER_H

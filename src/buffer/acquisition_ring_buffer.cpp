@@ -1,28 +1,31 @@
 /*
- * Implementation of the raw EMG sample ring buffer.
+ * Implementation of acquisition ring buffers.
  *
- * The write functions convert raw unsigned 16-bit amplifier samples into
- * floating-point microvolts before storing them. This keeps downstream
- * decomposition code independent of the ADC representation used by the
- * acquisition hardware.
+ * `AcquisitionRingBuffer` stores one sensor type in fixed-size circular
+ * storage. Incoming samples are written in sample-major order and tagged with a
+ * monotonically increasing acquisition index. The current write path converts
+ * raw unsigned 16-bit values using the Intan/RHD microvolt scale before storing
+ * floats; that matches the present EMG replay data and should be revisited
+ * before using the same path for non-EMG sensor streams.
  *
- * The ring stores all channels from all grids in one sample-major layout:
+ * Layout:
  *
- *   signals_[sample * num_channels + channel]
+ *   signal_[sample * num_streams_ + stream]
+ *   timestamps_[sample]
+ *   indices_[sample]
  *
- * Higher-level decomposition code later selects the active channels belonging
- * to each grid and copies them into per-grid working buffers.
+ * `AcquisitionMask` is a gather list, not a boolean mask. When a read copies a
+ * full acquisition sample into a per-grid `RingMatrix`, each destination row
+ * receives `sample[mask[row]]`, and the destination ring advances by one
+ * logical column.
  *
- * `write_sample` writes one timestamped sample.
- * `write_samples` writes a block of consecutive timestamped samples.
+ * Reads are based on acquisition indices instead of a shared read head.
+ * `read_latest_samples` initializes a consumer from the newest retained
+ * samples. `read_samples` uses a caller-owned `last_index_read` to copy the
+ * next unread samples into destination index, timestamp, and signal rings.
  *
- * The read/write head helpers expose circular-buffer movement:
- *
- *   - `prefix_increment_write_head` advances the write head after a write.
- *
- * If this buffer is used for true live acquisition, block writes must preserve
- * circular-buffer semantics when the write crosses the physical end of the
- * underlying vectors.
+ * The implementation is single-object storage only. It does not provide
+ * synchronization between producer and consumer threads.
  */
 
 #include "emg-rt/buffer/acquisition_ring_buffer.h"
@@ -47,10 +50,7 @@ void AcquisitionMask::set_mask(const vector<std::size_t> &mask_indices) {
   mask_ = mask_indices;
 }
 
-/*
- * Samples written to SignalRingBuffer are expected to contain all channels from
- * all grids.
- */
+// Samples written to the ring contain every stream for this sensor type.
 void AcquisitionRingBuffer::write_sample(const std::uint64_t *timestamp_src,
                                          const uint16_t *signal_src) noexcept {
   float *sig_dst = &signal_[write_head_ * num_streams_];
@@ -85,16 +85,11 @@ void AcquisitionRingBuffer::write_samples(size_t num_to_write,
 }
 
 /*
- * Reads the latest num_to_read samples out of the acquisition ring buffer, and
- * returns the timestamp of the last sample read. This makes it easy for readers
- * to initialize buffers when they haven't yet kept track of timestamps, while
- * allowing the next read to draw samples starting at the first timestamp the
- * reader hasn't read from yet, as opposed to unwisely trusting that drawing N
- * newest samples will always yield data without partition between reads, and
- * without missed timestamps.
+ * Copy the newest retained samples into caller-owned ring buffers.
  *
- * Later: change from sample_dst to emg_dst, imu_dst, and adc_dst, or smth
- * similar.
+ * This is used to initialize a consumer that does not yet have a
+ * `last_index_read`. The caller is responsible for recording the acquisition
+ * index it wants to use for subsequent incremental reads.
  */
 uint64_t AcquisitionRingBuffer::read_latest_samples(
     std::size_t num_to_read, const AcquisitionMask &acquisition_mask,
@@ -128,11 +123,11 @@ uint64_t AcquisitionRingBuffer::read_latest_samples(
 }
 
 /*
- * Given the last timestamp that a reader read from and the amount of new data
- * it would like, the acquisition ring buffer confirms that the queried data
- * exists, copies its data into the reader, and returns the last timestamp that
- * the reader read from, as an argument to this function the next time it would
- * like to read.
+ * Copy the next unread retained samples after `last_index_read`.
+ *
+ * The destination rings receive acquisition indices, timestamps, and gathered
+ * stream values. The returned index is the value the caller should retain for
+ * the next incremental read.
  */
 std::size_t AcquisitionRingBuffer::read_samples(
     std::size_t num_to_read, const AcquisitionMask &acquisition_mask,
@@ -168,7 +163,7 @@ std::size_t AcquisitionRingBuffer::read_samples(
   return indices_src[read_head];
 }
 
-// Increments before returning. (prefix increment)
+// Advance the write position and the monotonically increasing acquisition index.
 size_t AcquisitionRingBuffer::increment_heads() {
   if (++write_head_ == size_) {
     write_head_ = 0;

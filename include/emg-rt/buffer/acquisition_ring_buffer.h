@@ -1,36 +1,43 @@
 /*
- * Raw timestamped EMG sample ring buffer.
+ * Acquisition buffer types for timestamped sensor samples.
  *
- * This class stores the newest raw EMG samples in a fixed-size circular buffer.
- * Each sample contains:
+ * The acquisition layer is split into small ownership pieces:
  *
- *   - one timestamp
- *   - one value for each physical acquisition channel
+ *   - `SensorType` names the supported sensor domains.
+ *   - `SensorBufferConfig` describes one fixed-duration sensor buffer.
+ *   - `AcquisitionRingBuffer` owns the circular data for one sensor type.
+ *   - `AcquisitionFrameBuffer` owns the parallel EMG, IMU, and ADC buffers.
+ *   - `AcquisitionMask` stores selected source stream indices used when
+ *     gathering a full acquisition sample into a dense grid workspace.
  *
- * Conceptually, this is the boundary between acquisition and processing.
+ * Each `AcquisitionRingBuffer` is configured from `SensorBufferConfig`.
+ * `num_streams_` is computed as:
  *
- * In the current offline replay pipeline, samples are loaded from a binary file
- * and written into this buffer. In the future live system, a sensor/acquisition
- * thread should write samples into the same buffer. The decomposition pipeline
- * can then read from this buffer without caring whether the data came from disk
- * or hardware.
+ *   streams_per_sensor_ * num_sensors_
  *
- * The signal values are stored as converted floating-point microvolt values.
- * The input write functions currently accept raw uint16_t ADC samples and apply
- * the Intan/RHD conversion before storing them.
+ * The ring stores sample-major signal data plus one timestamp and one
+ * monotonically increasing acquisition index per sample:
  *
- * Layout:
- *
+ *   signal_[sample_index * num_streams_ + stream]
  *   timestamps_[sample_index]
- *   signals_[sample_index * num_channels_ + channel]
+ *   indices_[sample_index]
  *
- * `write_head_` marks where the next incoming sample will be written.
- * `read_head_` marks where the decomposition cycle will next read.
+ * `write_sample` and `write_samples` accept raw `uint16_t` values and currently
+ * apply the Intan/RHD microvolt conversion before storing floats. That
+ * conversion is appropriate for the present EMG replay path; callers should not
+ * assume it is generally valid for every sensor type without revisiting the
+ * conversion policy.
  *
- * This class is currently a simple single-process data structure. If one thread
- * writes while another thread reads in the final live system, the ownership and
- * synchronization rules should be made explicit before relying on it as a
- * thread-safe producer/consumer queue.
+ * Reads are consumer-index based. A consumer initializes from the newest
+ * samples with `read_latest_samples`, then tracks its own `last_index_read` and
+ * calls `read_samples` to copy the next unread samples. The buffer exposes
+ * `oldest_index()` and `newest_index()` so callers can reason about whether
+ * requested data is still retained.
+ *
+ * These classes do not enforce thread safety or multi-rate synchronization. If
+ * live acquisition writes while decomposition reads, ownership, locking or
+ * lock-free rules, timestamp meaning, and sensor-rate alignment need to be
+ * defined outside this buffer first.
  */
 
 #ifndef ACQUISITION_RING_BUFFER_H
