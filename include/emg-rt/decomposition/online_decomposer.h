@@ -68,7 +68,7 @@ struct GridWorkspace {
   std::vector<float> pulse_train_maxima;
   emg_rt::RingMatrix<float> extended_grid_signal;
   emg_rt::RingMatrix<float> raw_grid_window;
-  emg_rt::RingVector<uint64_t> indices;
+  emg_rt::RingVector<size_t> indices;
   emg_rt::RingVector<uint64_t> timestamps;
   emg_rt::RingMatrix<bool> candidate_spikes;
   emg_rt::RingMatrix<bool> discharges;

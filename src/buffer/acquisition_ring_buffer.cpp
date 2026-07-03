@@ -44,9 +44,7 @@ static inline float rhd_u16_to_microvolts(uint16_t raw) {
 }
 
 void AcquisitionMask::set_mask(const vector<std::size_t> &mask_indices) {
-  for (std::size_t channel : mask_indices) {
-    mask_[channel] = 1;
-  }
+  mask_ = mask_indices;
 }
 
 /*
@@ -71,7 +69,7 @@ void AcquisitionRingBuffer::write_samples(size_t num_to_write,
                                           const uint64_t *timestamps_src,
                                           const uint16_t *signal_src) noexcept {
   EMG_RT_PROFILE(emg_rt::prof::Section::ring_write);
-  uint64_t *timestamps_dst = indices_.data();
+  uint64_t *timestamps_dst = timestamps_.data();
   float *signal_dst = signal_.data();
 
   for (size_t sample = 0; sample < num_to_write; ++sample) {
@@ -120,7 +118,7 @@ uint64_t AcquisitionRingBuffer::read_latest_samples(
     indices_dst(sample) = indices_src[read_head];
     timestamps_dst(sample) = timestamps_src[read_head];
     signal_dst.write_column(&signal_src[read_head * num_streams_],
-                            acquisition_mask.mask().data());
+                            acquisition_mask.mask());
     if (++read_head == size_) {
       read_head = 0;
     }
@@ -161,7 +159,7 @@ std::size_t AcquisitionRingBuffer::read_samples(
     indices_dst(sample) = indices_src[read_head];
     timestamps_dst(sample) = timestamps_src[read_head];
     signal_dst.write_column(&signal_src[read_head * num_streams_],
-                            acquisition_mask.mask().data());
+                            acquisition_mask.mask());
     if (++read_head == size_) {
       read_head = 0;
     }

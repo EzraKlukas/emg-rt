@@ -119,10 +119,11 @@ void GridDecomposer::init_pulse_hist(
 void MultiGridDecomposer::read_samples(
     buffer::AcquisitionRingBuffer &acquisition_buffer, size_t num_to_read) {
   EMG_RT_PROFILE(prof::Section::samp_from_ring);
+  std::size_t old_last_index_read = last_index_read;
   for (auto &grid : grids_) {
-    acquisition_buffer.read_samples(num_to_read, grid.acquisition_mask(),
-                                    last_index_read, grid.workspace().indices,
-                                    grid.workspace().timestamps,
-                                    grid.workspace().raw_grid_window);
+    last_index_read = acquisition_buffer.read_samples(
+        num_to_read, grid.acquisition_mask(), old_last_index_read,
+        grid.workspace().indices, grid.workspace().timestamps,
+        grid.workspace().raw_grid_window);
   }
 }

@@ -17,6 +17,9 @@
  *   - When the current tracked maximum reaches the newest sample, recompute the
  *     maximum over the retained history so future comparisons remain valid.
  *
+ *   - No attempt is made to categorize points who don't have a full backward or
+ * forward facing history.
+ *
  * The output `candidate_spikes` is not yet the final discharge decision. It is
  * a mask of candidate local maxima that will later be classified using each
  * motor unit's spike and noise centroids.

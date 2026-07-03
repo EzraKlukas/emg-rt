@@ -38,6 +38,8 @@
 #include <vector>
 #include <yaml-cpp/yaml.h>
 
+#define MS_PER_S 1000
+
 using namespace emg_rt;
 
 static std::vector<float> get_vector_from_bin(const std::string &bin_path) {
@@ -139,11 +141,13 @@ parse_online_config(const YAML::Node &config) {
 
   online_config.min_lookback_samps = static_cast<std::size_t>(
       std::round(config["min_lookback_ms"].as<float>() *
-                 (float)online_config.sampling_frequency));
+                 (float)online_config.sampling_frequency) /
+      MS_PER_S);
 
   online_config.min_lookahead_samps = static_cast<std::size_t>(
       std::round(config["min_lookahead_ms"].as<float>() *
-                 (float)online_config.sampling_frequency));
+                 (float)online_config.sampling_frequency) /
+      MS_PER_S);
 
   online_config.validate();
   return online_config;
@@ -269,15 +273,16 @@ emg_rt::load_online_decomposer(const std::string &path_to_yaml) {
       for (std::size_t i = 0; i < active_channels.size(); ++i) {
         global_active_channels[i] += grid_idx;
       }
+
       acquisition_mask.set_mask(global_active_channels);
 
-      grids.emplace_back(grid_id, std::move(active_channels),
-                         std::move(samples_onset), std::move(mu_filters),
-                         std::move(noise_centroids), std::move(spike_centroids),
-                         std::move(inv_filter_norms), num_filters, ex_factor,
-                         online_config.samples_per_cycle,
-                         online_config.demean_window_size,
-                         online_config.min_lookback_samps, acquisition_mask);
+      grids.emplace_back(
+          grid_id, std::move(active_channels), std::move(samples_onset),
+          std::move(mu_filters), std::move(noise_centroids),
+          std::move(spike_centroids), std::move(inv_filter_norms), num_filters,
+          ex_factor, online_config.samples_per_cycle,
+          online_config.demean_window_size, online_config.min_lookback_samps,
+          std::move(acquisition_mask));
 
       grid_idx += channels_per_grid;
     }
