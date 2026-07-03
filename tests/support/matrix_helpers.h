@@ -6,7 +6,9 @@
 #include <doctest/doctest.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <initializer_list>
+#include <vector>
 
 namespace emg_rt::tests {
 
@@ -35,6 +37,37 @@ matrix_from_rows(std::initializer_list<std::initializer_list<T>> rows) {
   }
 
   return out;
+}
+
+template <typename T>
+void expect_matrix_eq(const RingMatrix<T> &matrix,
+                      std::initializer_list<std::initializer_list<T>> rows) {
+  REQUIRE(matrix.rows == rows.size());
+  REQUIRE_FALSE(rows.size() == 0);
+
+  const std::size_t expected_cols = rows.begin()->size();
+  REQUIRE(matrix.cols == expected_cols);
+
+  std::size_t row = 0;
+  for (const auto &values : rows) {
+    REQUIRE(values.size() == expected_cols);
+
+    std::size_t col = 0;
+    for (const T &expected : values) {
+      CHECK(matrix(row, col) == expected);
+      ++col;
+    }
+
+    ++row;
+  }
+}
+
+inline uint16_t raw_adc_from_counts(int counts_from_midscale) {
+  return static_cast<uint16_t>(32768 + counts_from_midscale);
+}
+
+inline float microvolts_from_counts(int counts_from_midscale) {
+  return static_cast<float>(counts_from_midscale) * 0.195F;
 }
 
 } // namespace emg_rt::tests

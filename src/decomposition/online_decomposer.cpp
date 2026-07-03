@@ -52,27 +52,12 @@
 using namespace emg_rt;
 
 void GridDecomposer::init_workspace(
-    std::size_t start_idx, buffer::AcquisitionRingBuffer &acquisition_buffer) {
-  size_t tot_channels = acquisition_buffer.num_channels();
-  size_t num_active_channels = active_channels().size();
-  size_t num_samples = workspace().raw_grid_window.cols;
-  size_t read_idx =
-      (acquisition_buffer.read_head() + acquisition_buffer.size() -
-       workspace().raw_grid_window.cols) %
-      acquisition_buffer.size();
-
-  for (size_t sample_idx = 0; sample_idx < num_samples; ++sample_idx) {
-    workspace().timestamps.data[sample_idx] =
-        acquisition_buffer.timestamps()[read_idx];
-    for (size_t chan_idx = 0; chan_idx < num_active_channels; ++chan_idx) {
-      workspace().raw_grid_window(chan_idx, sample_idx) =
-          acquisition_buffer.signals()[(read_idx * tot_channels) + start_idx +
-                                       active_channels()[chan_idx]];
-    }
-    if (++read_idx == acquisition_buffer.size()) {
-      read_idx = 0;
-    }
-  }
+    buffer::AcquisitionRingBuffer &acquisition_buffer) {
+  GridWorkspace &ws = workspace();
+  size_t num_samples = ws.raw_grid_window.cols;
+  acquisition_buffer.read_latest_samples(num_samples, acquisition_mask(),
+                                         ws.indices, ws.timestamps,
+                                         ws.raw_grid_window);
 }
 
 void GridWorkspace::advance_output_heads(std::size_t advance_dist) {
@@ -103,14 +88,12 @@ void GridDecomposer::decompose(config::OnlineDecompositionConfig &config) {
 }
 
 void MultiGridDecomposer::init_grids(
-    buffer::AcquisitionRingBuffer &live_signal) {
-  std::size_t grid_idx = 0;
+    buffer::AcquisitionRingBuffer &acquisition_buffer) {
   for (auto &grid : grids_) {
-    grid.init_workspace(grid_idx, live_signal);
-    grid_idx += channels_per_grid;
-    grid.workspace().demean_sums =
-        dsp::initial_sums(grid.workspace().raw_grid_window,
-                          config_.demean_window_size, grid.ex_factor());
+    GridWorkspace &ws = grid.workspace();
+    grid.init_workspace(acquisition_buffer);
+    ws.demean_sums = dsp::initial_sums(
+        ws.raw_grid_window, config_.demean_window_size, grid.ex_factor());
   }
 }
 
@@ -133,19 +116,13 @@ void GridDecomposer::init_pulse_hist(
  * Modifies:
  * live_signal.read_head() -> contractually the only place it's read!
  */
-void MultiGridDecomposer::get_samples(
-    buffer::AcquisitionRingBuffer &live_signal, size_t num_to_get) {
+void MultiGridDecomposer::read_samples(
+    buffer::AcquisitionRingBuffer &acquisition_buffer, size_t num_to_read) {
   EMG_RT_PROFILE(prof::Section::samp_from_ring);
-  std::size_t grid_idx = 0;
   for (auto &grid : grids_) {
-    for (size_t sample_idx = 0; sample_idx < num_to_get; ++sample_idx) {
-      grid.workspace().timestamps.insert(
-          live_signal.timestamps()[live_signal.read_head()]);
-      grid.workspace().raw_grid_window.write_column(
-          &live_signal.signals()[(live_signal.postfix_increment_read_head() *
-                                  live_signal.num_channels()) +
-                                 grid_idx]);
-    }
-    grid_idx += channels_per_grid;
+    acquisition_buffer.read_samples(num_to_read, grid.acquisition_mask(),
+                                    last_index_read, grid.workspace().indices,
+                                    grid.workspace().timestamps,
+                                    grid.workspace().raw_grid_window);
   }
 }

@@ -50,7 +50,8 @@ void decomp::classify_discharges(RingMatrix<bool> &discharge_mask,
   std::size_t filters = pulse_train.rows;
 
   assert(discharge_mask.rows == filters);
-  assert(spikes.rows == filters && spikes.cols == pulse_train.cols);
+  assert(candidate_spikes.rows == filters &&
+         candidate_spikes.cols == pulse_train.cols);
   assert(filters == noise_centroids.size() &&
          filters == spike_centroids.size());
 

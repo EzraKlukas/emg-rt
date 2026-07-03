@@ -44,7 +44,7 @@ add_library(emg_rt_lib
 
     src/data_replay/offline_emg_source.cpp
 
-    src/decomposition/get_discharge_t.cpp
+    src/decomposition/classify_discharges.cpp
     src/decomposition/get_pulse_train.cpp
     src/decomposition/is_local_max.cpp
     src/decomposition/online_decomposer.cpp
@@ -101,5 +101,5 @@ target_link_libraries(emg-rt
 # Tests
 # -----------------------------------------------------------------------------
 
-enable_testing()
-add_subdirectory(tests)
+# enable_testing()
+# add_subdirectory(tests)

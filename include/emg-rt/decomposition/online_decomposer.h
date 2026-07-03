@@ -68,6 +68,7 @@ struct GridWorkspace {
   std::vector<float> pulse_train_maxima;
   emg_rt::RingMatrix<float> extended_grid_signal;
   emg_rt::RingMatrix<float> raw_grid_window;
+  emg_rt::RingVector<uint64_t> indices;
   emg_rt::RingVector<uint64_t> timestamps;
   emg_rt::RingMatrix<bool> candidate_spikes;
   emg_rt::RingMatrix<bool> discharges;
@@ -83,6 +84,7 @@ struct GridWorkspace {
         raw_grid_window(num_active_channels, samples_per_cycle +
                                                  demean_window_size +
                                                  (ex_factor - 1)),
+        indices(samples_per_cycle + demean_window_size + (ex_factor - 1)),
         timestamps(samples_per_cycle + demean_window_size + (ex_factor - 1)),
         candidate_spikes(num_filters, samples_per_cycle + min_lookback_samps),
         discharges(num_filters, samples_per_cycle + min_lookback_samps),
@@ -101,23 +103,23 @@ public:
                  std::vector<float> spike_centroids,
                  std::vector<float> inv_filter_norms, std::size_t num_filters,
                  std::size_t ex_factor, std::size_t samples_per_cycle,
-                 std::size_t demean_window_size, std::size_t min_lookback_samps)
+                 std::size_t demean_window_size, std::size_t min_lookback_samps,
+                 buffer::AcquisitionMask acquisition_mask)
       : grid_id_(grid_id), active_channels_(active_channels),
-        mu_filters_(std::move(mu_filters)),
+        samples_onset_(samples_onset), mu_filters_(std::move(mu_filters)),
         noise_centroids_(std::move(noise_centroids)),
         spike_centroids_(std::move(spike_centroids)),
         inv_filter_norms_(std::move(inv_filter_norms)),
-        samples_onset_(samples_onset), num_filters_(num_filters),
-        ex_factor_(ex_factor),
+        num_filters_(num_filters), ex_factor_(ex_factor),
         num_extended_channels_(ex_factor_ * active_channels_.size()),
+        acquisition_mask_(std::move(acquisition_mask)),
         workspace_(samples_per_cycle, active_channels_.size(), ex_factor_,
                    num_filters_, demean_window_size, min_lookback_samps) {
     validate_dimensions();
   }
 
   void
-  init_workspace(std::size_t start_idx,
-                 emg_rt::buffer::AcquisitionRingBuffer &acquisition_buffer);
+  init_workspace(emg_rt::buffer::AcquisitionRingBuffer &acquisition_buffer);
   void init_pulse_hist(emg_rt::config::OnlineDecompositionConfig &config);
   // something to initialize the mean and buffers, e.g. fill emg buffer.
   void decompose(emg_rt::config::OnlineDecompositionConfig &config);
@@ -126,6 +128,8 @@ public:
   std::size_t num_filters() const { return num_filters_; }
   std::size_t ex_factor() const { return ex_factor_; }
   std::size_t num_extended_channels() const { return num_extended_channels_; }
+
+  buffer::AcquisitionMask &acquisition_mask() { return acquisition_mask_; }
 
   GridWorkspace &workspace() { return workspace_; }
   const GridWorkspace &workspace() const { return workspace_; }
@@ -230,15 +234,21 @@ private:
   std::size_t ex_factor_;
   std::size_t num_extended_channels_;
 
+  buffer::AcquisitionMask acquisition_mask_;
   GridWorkspace workspace_;
 };
 
 class MultiGridDecomposer {
 public:
+  std::size_t last_index_read = 0;
+
   MultiGridDecomposer(emg_rt::config::OnlineDecompositionConfig config,
                       std::vector<GridDecomposer> grids)
       : config_(config), grids_(std::move(grids)) {
     config_.validate();
+    for (GridDecomposer &grid : grids) {
+      grid.acquisition_mask().set_mask(grid.active_channels());
+    }
   }
 
   void decompose() {
@@ -249,7 +259,7 @@ public:
     }
   }
 
-  void init_grids(emg_rt::buffer::AcquisitionRingBuffer &live_signal);
+  void init_grids(emg_rt::buffer::AcquisitionRingBuffer &acquisition_buffer);
   void init_pulse_hist() {
     for (auto &grid : grids_) {
       EMG_RT_PROFILE(emg_rt::prof::Section::init_pulse_train);
@@ -257,8 +267,8 @@ public:
       grid.workspace().advance_output_heads(config_.samples_per_cycle);
     }
   }
-  void get_samples(emg_rt::buffer::AcquisitionRingBuffer &live_signal,
-                   std::size_t num_to_get);
+  void read_samples(emg_rt::buffer::AcquisitionRingBuffer &acquisition_buffer,
+                    std::size_t num_to_read);
 
   const emg_rt::config::OnlineDecompositionConfig &config() const {
     return config_;
@@ -268,7 +278,7 @@ public:
   const std::vector<GridDecomposer> &grids() const { return grids_; }
 
 private:
-  emg_rt::config::OnlineDecompositionConfig config_;
+  config::OnlineDecompositionConfig config_;
   std::vector<GridDecomposer> grids_;
 };
 

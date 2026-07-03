@@ -2,6 +2,7 @@
 #define EMG_RT_TYPES_H
 
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 
 /*
@@ -76,13 +77,15 @@ template <typename T> struct RingMatrix {
   }
 
   // Append one new column on the right, overwriting the oldest column.
-  void write_column(const T *column) {
+  void write_column(const T *column, const std::size_t *mask) {
     std::size_t write_col = head; // overwrite oldest physical column
 
     T *dst_col = &data[write_col * rows];
 
     for (std::size_t row = 0; row < rows; ++row) {
-      dst_col[row] = column[row];
+      if (mask[row] != 0) {
+        dst_col[row] = column[row];
+      }
     }
 
     increment_head();

@@ -1,26 +1,34 @@
 # Tests
 
-This directory keeps tests close to the public API area they exercise:
+This suite is correctness-focused and uses tiny synthetic data with explicit
+golden expectations. It intentionally does not depend on repository `.bin`
+fixtures for tractable DSP/decomposition examples.
 
-- `utils/`: storage and view helpers.
-- `dsp/`: signal preparation helpers.
-- `decomposition/`: pulse train, spike detection, and discharge-time logic.
-- `support/`: small test-only helpers.
+Directory map:
 
-Each `.cpp` file should stay narrow. Prefer one file per function or one file per
-small workflow. When a behavior spans multiple functions, add a new file beside
-the isolated tests rather than making the isolated tests large.
+- `buffer/`: `AcquisitionRingBuffer`, `RingMatrix`, and `RingVector` storage,
+  wraparound, logical order, timestamp/sample alignment, and read/write head
+  movement.
+- `dsp/`: temporal extension, extension delay ordering, wrapped logical input,
+  initial rolling sums, row-wise demeaning, and combined extend + demean cases.
+- `decomposition/`: pulse-train projection, signed-square normalization,
+  wrapped ring output, incremental local maxima, centroid classification, ties,
+  and onset adjustment.
+- `config/`: temporary YAML plus tiny binary float files for single-grid,
+  multi-grid, missing-field, and invalid-dimension loading checks.
+- `integration/`: small synthetic workflows through buffer copy, extension,
+  demeaning, filter projection, peak detection, and discharge classification.
+- `support/`: deterministic matrix builders, ADC conversion helpers, and
+  temporary file helpers.
 
-Correctness notes for this project:
+Intentional exclusions:
 
-- Test tiny hand-computed matrices first. EMG pipeline bugs often hide in row,
-  column, delay, and ring-buffer indexing.
-- Include wrapped `RingMatrix` cases when testing anything that reads logical
-  columns. Contiguous storage and logical order are different concerns.
-- Keep golden expectations explicit in tests; avoid recomputing the expected
-  value with the same algorithm under test.
-- Separate offline file/config loading tests from realtime processing tests.
-  Realtime-facing tests should make allocation and loop bounds obvious.
-- Add integration tests only after the isolated function contract is pinned
-  down. Pipeline failures are much easier to diagnose when each stage has small
-  deterministic examples.
+- No multi-threading or concurrency tests.
+- No hardware timing assumptions.
+- No tests that require production-only private access or changes to
+  `src/`/`include/`.
+- No NaN/Inf behavior tests; the current public comments do not specify those
+  semantics.
+
+See `KNOWN_GAPS.md` for behavior that should be tested once public seams or
+semantic decisions are clarified.

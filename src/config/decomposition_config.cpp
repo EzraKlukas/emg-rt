@@ -24,6 +24,7 @@
  * the online loop.
  */
 
+#include "emg-rt/buffer/acquisition_ring_buffer.h"
 #include "emg-rt/decomposition/online_decomposer.h"
 #include "emg-rt/utils/formatting.h"
 
@@ -123,7 +124,8 @@ parse_online_config(const YAML::Node &config) {
 
   config::OnlineDecompositionConfig online_config;
 
-  online_config.sampling_frequency = config["sampling_frequency"].as<float>();
+  online_config.sampling_frequency =
+      config["sampling_frequency"].as<std::size_t>();
   online_config.decomposition_frequency =
       config["decomposition_frequency"].as<float>();
   online_config.demean_window_size =
@@ -132,16 +134,16 @@ parse_online_config(const YAML::Node &config) {
       config["num_extended_channels"].as<std::size_t>();
 
   online_config.samples_per_cycle = static_cast<std::size_t>(
-      std::round(online_config.sampling_frequency /
+      std::round((float)online_config.sampling_frequency /
                  online_config.decomposition_frequency));
 
   online_config.min_lookback_samps = static_cast<std::size_t>(
       std::round(config["min_lookback_ms"].as<float>() *
-                 online_config.sampling_frequency));
+                 (float)online_config.sampling_frequency));
 
   online_config.min_lookahead_samps = static_cast<std::size_t>(
       std::round(config["min_lookahead_ms"].as<float>() *
-                 online_config.sampling_frequency));
+                 (float)online_config.sampling_frequency));
 
   online_config.validate();
   return online_config;
@@ -183,6 +185,8 @@ emg_rt::load_online_decomposer(const std::string &path_to_yaml) {
 
     std::vector<emg_rt::GridDecomposer> grids;
     grids.reserve(grids_node.size());
+
+    std::size_t grid_idx = 0;
 
     for (const YAML::Node &grid_node : grids_node) {
       const std::size_t grid_id = grid_node["grid_id"].as<std::size_t>();
@@ -258,12 +262,24 @@ emg_rt::load_online_decomposer(const std::string &path_to_yaml) {
                         grid_id));
       }
 
-      grids.emplace_back(
-          grid_id, std::move(active_channels), std::move(samples_onset),
-          std::move(mu_filters), std::move(noise_centroids),
-          std::move(spike_centroids), std::move(inv_filter_norms), num_filters,
-          ex_factor, online_config.samples_per_cycle,
-          online_config.demean_window_size, online_config.min_lookback_samps);
+      buffer::AcquisitionMask acquisition_mask = buffer::AcquisitionMask(
+          buffer::SensorType::EMG, active_channels.size());
+
+      std::vector<std::size_t> global_active_channels = active_channels;
+      for (std::size_t i = 0; i < active_channels.size(); ++i) {
+        global_active_channels[i] += grid_idx;
+      }
+      acquisition_mask.set_mask(global_active_channels);
+
+      grids.emplace_back(grid_id, std::move(active_channels),
+                         std::move(samples_onset), std::move(mu_filters),
+                         std::move(noise_centroids), std::move(spike_centroids),
+                         std::move(inv_filter_norms), num_filters, ex_factor,
+                         online_config.samples_per_cycle,
+                         online_config.demean_window_size,
+                         online_config.min_lookback_samps, acquisition_mask);
+
+      grid_idx += channels_per_grid;
     }
 
     return emg_rt::MultiGridDecomposer{online_config, std::move(grids)};

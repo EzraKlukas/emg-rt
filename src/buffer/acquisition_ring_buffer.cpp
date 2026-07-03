@@ -19,8 +19,6 @@
  * The read/write head helpers expose circular-buffer movement:
  *
  *   - `prefix_increment_write_head` advances the write head after a write.
- *   - `postfix_increment_read_head` returns the current read position and then
- *     advances the read head.
  *
  * If this buffer is used for true live acquisition, block writes must preserve
  * circular-buffer semantics when the write crosses the physical end of the
@@ -45,54 +43,138 @@ static inline float rhd_u16_to_microvolts(uint16_t raw) {
          uV_per_count;
 }
 
+void AcquisitionMask::set_mask(const vector<std::size_t> &mask_indices) {
+  for (std::size_t channel : mask_indices) {
+    mask_[channel] = 1;
+  }
+}
+
 /*
  * Samples written to SignalRingBuffer are expected to contain all channels from
  * all grids.
  */
-void AcquisitionRingBuffer::write_sample(uint64_t timestamp,
-                                         const uint16_t *sample) noexcept {
-  timestamps_[write_head_] = timestamp;
-  float *sig_dst = &signals_[write_head_ * num_channels_];
+void AcquisitionRingBuffer::write_sample(const std::uint64_t *timestamp_src,
+                                         const uint16_t *signal_src) noexcept {
+  float *sig_dst = &signal_[write_head_ * num_streams_];
 
-  for (size_t ch = 0; ch < num_channels_; ++ch) {
-    sig_dst[ch] = rhd_u16_to_microvolts(sample[ch]);
+  indices_[write_head_] = curr_index_;
+  timestamps_[write_head_] = timestamp_src[0];
+
+  for (size_t ch = 0; ch < num_streams_; ++ch) {
+    sig_dst[ch] = rhd_u16_to_microvolts(signal_src[ch]);
   }
 
-  prefix_increment_write_head();
+  increment_heads();
 }
 
 void AcquisitionRingBuffer::write_samples(size_t num_to_write,
-                                          const uint64_t *timestamps,
-                                          const uint16_t *samples) noexcept {
+                                          const uint64_t *timestamps_src,
+                                          const uint16_t *signal_src) noexcept {
   EMG_RT_PROFILE(emg_rt::prof::Section::ring_write);
-  uint64_t *ts_dst = timestamps_.data();
-  float *sig_dst = signals_.data();
+  uint64_t *timestamps_dst = indices_.data();
+  float *signal_dst = signal_.data();
 
   for (size_t sample = 0; sample < num_to_write; ++sample) {
-    ts_dst[write_head_] = timestamps[sample];
-    for (size_t ch = 0; ch < num_channels_; ++ch) {
-      sig_dst[(write_head_ * num_channels_) + ch] =
-          rhd_u16_to_microvolts(samples[(sample * num_channels_) + ch]);
+    indices_[write_head_] = curr_index_;
+    timestamps_dst[write_head_] = timestamps_src[sample];
+    for (size_t ch = 0; ch < num_streams_; ++ch) {
+      signal_dst[(write_head_ * num_streams_) + ch] =
+          rhd_u16_to_microvolts(signal_src[(sample * num_streams_) + ch]);
     }
-    prefix_increment_write_head();
+
+    increment_heads();
   }
 }
 
-// Increments, but returns current. (postfix increment)
-size_t AcquisitionRingBuffer::postfix_increment_read_head() {
-  const std::size_t old = read_head_;
+/*
+ * Reads the latest num_to_read samples out of the acquisition ring buffer, and
+ * returns the timestamp of the last sample read. This makes it easy for readers
+ * to initialize buffers when they haven't yet kept track of timestamps, while
+ * allowing the next read to draw samples starting at the first timestamp the
+ * reader hasn't read from yet, as opposed to unwisely trusting that drawing N
+ * newest samples will always yield data without partition between reads, and
+ * without missed timestamps.
+ *
+ * Later: change from sample_dst to emg_dst, imu_dst, and adc_dst, or smth
+ * similar.
+ */
+uint64_t AcquisitionRingBuffer::read_latest_samples(
+    std::size_t num_to_read, const AcquisitionMask &acquisition_mask,
+    RingVector<size_t> &indices_dst, RingVector<uint64_t> &timestamps_dst,
+    RingMatrix<float> &signal_dst) noexcept {
+  EMG_RT_PROFILE(emg_rt::prof::Section::ring_read_latest);
+  size_t *indices_src = indices_.data();
+  uint64_t *timestamps_src = timestamps_.data();
+  float *signal_src = signal_.data();
 
-  if (++read_head_ == size_) {
-    read_head_ = 0;
+  assert(num_to_read < size_);
+
+  std::size_t read_head;
+  if (write_head_ < num_to_read) {
+    read_head = (write_head_ + size_) - num_to_read;
+  } else {
+    read_head = write_head_ - num_to_read;
   }
 
-  return old;
+  for (size_t sample = 0; sample < num_to_read; ++sample) {
+    indices_dst(sample) = indices_src[read_head];
+    timestamps_dst(sample) = timestamps_src[read_head];
+    signal_dst.write_column(&signal_src[read_head * num_streams_],
+                            acquisition_mask.mask().data());
+    if (++read_head == size_) {
+      read_head = 0;
+    }
+  }
+
+  return timestamps_src[read_head];
+}
+
+/*
+ * Given the last timestamp that a reader read from and the amount of new data
+ * it would like, the acquisition ring buffer confirms that the queried data
+ * exists, copies its data into the reader, and returns the last timestamp that
+ * the reader read from, as an argument to this function the next time it would
+ * like to read.
+ */
+std::size_t AcquisitionRingBuffer::read_samples(
+    std::size_t num_to_read, const AcquisitionMask &acquisition_mask,
+    uint64_t last_index_read, RingVector<size_t> &indices_dst,
+    RingVector<uint64_t> &timestamps_dst,
+    RingMatrix<float> &signal_dst) noexcept {
+  EMG_RT_PROFILE(emg_rt::prof::Section::ring_read);
+  size_t *indices_src = indices_.data();
+  uint64_t *timestamps_src = timestamps_.data();
+  float *signal_src = signal_.data();
+
+  assert(num_to_read < size_);
+  assert(oldest_index() < last_index_read);
+  assert(newest_index() - last_index_read >= num_to_read);
+
+  std::size_t read_head;
+  if (write_head_ < newest_index() - last_index_read) {
+    read_head = (write_head_ + size_) + (last_index_read - newest_index());
+  } else {
+    read_head = write_head_ + (last_index_read - newest_index());
+  }
+
+  for (size_t sample = 0; sample < num_to_read; ++sample) {
+    indices_dst(sample) = indices_src[read_head];
+    timestamps_dst(sample) = timestamps_src[read_head];
+    signal_dst.write_column(&signal_src[read_head * num_streams_],
+                            acquisition_mask.mask().data());
+    if (++read_head == size_) {
+      read_head = 0;
+    }
+  }
+
+  return indices_src[read_head];
 }
 
 // Increments before returning. (prefix increment)
-size_t AcquisitionRingBuffer::prefix_increment_write_head() {
+size_t AcquisitionRingBuffer::increment_heads() {
   if (++write_head_ == size_) {
     write_head_ = 0;
   }
+  ++curr_index_;
   return write_head_;
 }

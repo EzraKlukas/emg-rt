@@ -50,6 +50,8 @@
 const std::string path_to_yaml = "offline_params/decomposition_config.yaml";
 const std::string path_to_sig = "offline_data/emg.bin";
 
+const std::size_t buffer_duration_ms = 200;
+
 using namespace emg_rt;
 
 int main(int argc, char *argv[]) {
@@ -75,15 +77,17 @@ int main(int argc, char *argv[]) {
   MultiGridDecomposer decompose = load_online_decomposer(path_to_yaml);
   // std::cout << format_online_params(decompose) << std::flush;
 
+  buffer::SensorBufferConfig sensor_cfg = buffer::SensorBufferConfig(
+      buffer::SensorType::EMG, decompose.config().sampling_frequency,
+      decompose.grids().size(), buffer::chan_per_emg, buffer_duration_ms);
+
   buffer::AcquisitionRingBuffer acquisition_buffer =
-      buffer::AcquisitionRingBuffer(decompose.config().demean_window_size * 2,
-                                    decompose.grids().size() *
-                                        channels_per_grid);
+      buffer::AcquisitionRingBuffer(sensor_cfg);
 
   std::vector<uint16_t> offline_raw_samples =
       replay::pull_samples_from_bin<uint16_t>(path_to_sig);
   std::vector<uint64_t> timestamps = replay::generate_replay_timestamps(
-      offline_raw_samples.size() / acquisition_buffer.num_channels());
+      offline_raw_samples.size() / acquisition_buffer.num_streams());
 
   // fully load live_signal initially and then perform decompose.init_grids.
   acquisition_buffer.write_samples(acquisition_buffer.size(), timestamps.data(),
@@ -104,9 +108,9 @@ int main(int argc, char *argv[]) {
 
       acquisition_buffer.write_samples(
           decompose.config().samples_per_cycle, &timestamps[emg_count],
-          &offline_raw_samples[emg_count * acquisition_buffer.num_channels()]);
-      decompose.get_samples(acquisition_buffer,
-                            decompose.config().samples_per_cycle);
+          &offline_raw_samples[emg_count * acquisition_buffer.num_streams()]);
+      decompose.read_samples(acquisition_buffer,
+                             decompose.config().samples_per_cycle);
       if (emg_count - acquisition_buffer.size() <
           decompose.config().min_lookback_samps) {
         decompose.init_pulse_hist();

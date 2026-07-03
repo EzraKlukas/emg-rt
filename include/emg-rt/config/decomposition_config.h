@@ -51,7 +51,7 @@ inline constexpr float DECOMPOSITION_FREQUENCY_MAX = 2000.0F;
 inline constexpr float DECOMPOSITION_FREQUENCY_MIN = 100.0F;
 
 struct OnlineDecompositionConfig {
-  float sampling_frequency;
+  std::size_t sampling_frequency;
   float decomposition_frequency;
   std::size_t demean_window_size;
 

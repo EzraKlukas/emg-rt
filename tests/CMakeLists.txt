@@ -3,14 +3,19 @@ find_package(doctest CONFIG REQUIRED)
 add_executable(emg_rt_tests
     test_main.cpp
 
-    decomposition/test_get_distime.cpp
+    buffer/test_acquisition_ring_buffer.cpp
+    buffer/test_ring_matrix.cpp
+
+    config/test_load_online_decomposer.cpp
+
+    decomposition/test_classify_discharges.cpp
     decomposition/test_get_pulse_train.cpp
-    decomposition/test_incremental_is_local_max.cpp
+    decomposition/test_is_local_max.cpp
 
     dsp/test_demean.cpp
-    dsp/test_incremental_extend.cpp
+    dsp/test_extend.cpp
 
-    utils/test_ring_matrix.cpp
+    integration/test_synthetic_pipeline.cpp
 )
 
 target_include_directories(emg_rt_tests PRIVATE

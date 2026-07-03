@@ -72,6 +72,8 @@ namespace emg_rt::prof {
 enum class Section : std::uint8_t {
   cycle,
   ring_write,
+  ring_read_latest,
+  ring_read,
   samp_from_ring,
   init_pulse_train,
   extend,
@@ -89,6 +91,10 @@ constexpr std::string_view section_to_string(Section s) {
     return "cycle";
   case Section::ring_write:
     return "ring_write";
+  case Section::ring_read_latest:
+    return "ring_read_latest";
+  case Section::ring_read:
+    return "ring_read";
   case Section::samp_from_ring:
     return "samp_from_ring";
   case Section::init_pulse_train:
