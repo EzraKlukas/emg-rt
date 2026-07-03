@@ -160,10 +160,18 @@ std::size_t AcquisitionRingBuffer::read_samples(
     }
   }
 
+  // decrement read_head to obtain final index read.
+  if (read_head == 0) {
+    read_head = size_ - 1;
+  } else {
+    --read_head;
+  }
+
   return indices_src[read_head];
 }
 
-// Advance the write position and the monotonically increasing acquisition index.
+// Advance the write position and the monotonically increasing acquisition
+// index.
 size_t AcquisitionRingBuffer::increment_heads() {
   if (++write_head_ == size_) {
     write_head_ = 0;

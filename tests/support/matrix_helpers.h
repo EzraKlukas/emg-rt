@@ -62,6 +62,52 @@ void expect_matrix_eq(const RingMatrix<T> &matrix,
   }
 }
 
+inline void
+expect_matrix_approx(const RingMatrix<float> &matrix,
+                     std::initializer_list<std::initializer_list<float>> rows) {
+  REQUIRE(matrix.rows == rows.size());
+  REQUIRE_FALSE(rows.size() == 0);
+
+  const std::size_t expected_cols = rows.begin()->size();
+  REQUIRE(matrix.cols == expected_cols);
+
+  std::size_t row = 0;
+  for (const auto &values : rows) {
+    REQUIRE(values.size() == expected_cols);
+
+    std::size_t col = 0;
+    for (const float expected : values) {
+      CHECK(matrix(row, col) == doctest::Approx(expected));
+      ++col;
+    }
+
+    ++row;
+  }
+}
+
+template <typename T, typename U>
+void expect_vector_eq(RingVector<T> &vector,
+                      std::initializer_list<U> expected_values) {
+  REQUIRE(vector.size == expected_values.size());
+
+  std::size_t idx = 0;
+  for (const U &expected : expected_values) {
+    CHECK(vector(idx) == static_cast<T>(expected));
+    ++idx;
+  }
+}
+
+inline void expect_vector_approx(const std::vector<float> &actual,
+                                 std::initializer_list<float> expected_values) {
+  REQUIRE(actual.size() == expected_values.size());
+
+  std::size_t idx = 0;
+  for (const float expected : expected_values) {
+    CHECK(actual[idx] == doctest::Approx(expected));
+    ++idx;
+  }
+}
+
 inline uint16_t raw_adc_from_counts(int counts_from_midscale) {
   return static_cast<uint16_t>(32768 + counts_from_midscale);
 }

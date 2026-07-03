@@ -1,34 +1,28 @@
-# Tests
+# Test Suite Overview
 
-This suite is correctness-focused and uses tiny synthetic data with explicit
-golden expectations. It intentionally does not depend on repository `.bin`
-fixtures for tractable DSP/decomposition examples.
+This directory contains deterministic doctest coverage for the real-time EMG
+decomposition code. The tests use synthetic data and small hand-computed
+expectations; they do not depend on the offline replay `.bin` files.
 
-Directory map:
+Groups:
 
-- `buffer/`: `AcquisitionRingBuffer`, `RingMatrix`, and `RingVector` storage,
-  wraparound, logical order, timestamp/sample alignment, and read/write head
-  movement.
-- `dsp/`: temporal extension, extension delay ordering, wrapped logical input,
-  initial rolling sums, row-wise demeaning, and combined extend + demean cases.
-- `decomposition/`: pulse-train projection, signed-square normalization,
-  wrapped ring output, incremental local maxima, centroid classification, ties,
-  and onset adjustment.
-- `config/`: temporary YAML plus tiny binary float files for single-grid,
-  multi-grid, missing-field, and invalid-dimension loading checks.
-- `integration/`: small synthetic workflows through buffer copy, extension,
-  demeaning, filter projection, peak detection, and discharge classification.
-- `support/`: deterministic matrix builders, ADC conversion helpers, and
-  temporary file helpers.
+- `buffer/`: `RingMatrix`, `RingVector`, acquisition ring storage, conversion,
+  stream-mask gathering, wraparound, and consumer-index reads.
+- `dsp/`: temporal extension, row-wise rolling sums, demeaning, and wrapped
+  logical input windows.
+- `decomposition/`: pulse-train projection, signed-square behavior, inverse
+  normalization, local-maximum tracking, and centroid classification.
+- `config/`: temporary YAML and binary float files for valid and invalid
+  `load_online_decomposer` cases.
+- `integration/`: tractable adjacent-stage workflows using synthetic samples.
 
-Intentional exclusions:
+Run locally from the repository root:
 
-- No multi-threading or concurrency tests.
-- No hardware timing assumptions.
-- No tests that require production-only private access or changes to
-  `src/`/`include/`.
-- No NaN/Inf behavior tests; the current public comments do not specify those
-  semantics.
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
 
-See `KNOWN_GAPS.md` for behavior that should be tested once public seams or
-semantic decisions are clarified.
+These tests are intended to expose faults. A failing test should not be weakened
+unless the test misunderstood the documented public API.

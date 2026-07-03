@@ -4,74 +4,59 @@
 
 #include <doctest/doctest.h>
 
-TEST_CASE("RingMatrix preserves logical order before wraparound") {
-  const auto matrix = emg_rt::tests::matrix_from_rows<int>({
+#include <cstddef>
+#include <vector>
+
+TEST_CASE("MatrixView uses documented column-major indexing") {
+  std::vector<float> storage = {
+      1.0F, 10.0F,
+      2.0F, 20.0F,
+      3.0F, 30.0F,
+  };
+  emg_rt::MatrixView<float> view(storage.data(), 2, 3);
+
+  CHECK(view(0, 0) == doctest::Approx(1.0F));
+  CHECK(view(1, 0) == doctest::Approx(10.0F));
+  CHECK(view(0, 1) == doctest::Approx(2.0F));
+  CHECK(view(1, 2) == doctest::Approx(30.0F));
+}
+
+TEST_CASE("RingMatrix write_column gathers by source index and advances head") {
+  auto matrix = emg_rt::tests::matrix_from_rows<int>({
       {1, 2, 3},
       {10, 20, 30},
   });
 
-  CHECK(matrix.head == 0);
-  emg_rt::tests::expect_matrix_eq<int>(matrix, {
-                                                   {1, 2, 3},
-                                                   {10, 20, 30},
-                                               });
-}
+  const int first_source[] = {100, 101, 102, 103};
+  matrix.write_column(first_source, std::vector<std::size_t>{3, 1});
 
-TEST_CASE("RingMatrix exact-capacity writes leave logical order contiguous") {
-  emg_rt::RingMatrix<int> matrix(2, 3);
+  CHECK(matrix.head == 1);
+  emg_rt::tests::expect_matrix_eq(matrix, {
+                                              {2, 3, 103},
+                                              {20, 30, 101},
+                                          });
 
-  const int col0[] = {1, 10};
-  const int col1[] = {2, 20};
-  const int col2[] = {3, 30};
-
-  matrix.write_column(col0);
-  matrix.write_column(col1);
-  matrix.write_column(col2);
-
-  CHECK(matrix.head == 0);
-  emg_rt::tests::expect_matrix_eq<int>(matrix, {
-                                                   {1, 2, 3},
-                                                   {10, 20, 30},
-                                               });
-}
-
-TEST_CASE("RingMatrix returns newest capacity after multiple overwrites") {
-  emg_rt::RingMatrix<int> matrix(2, 3);
-
-  const int col0[] = {1, 10};
-  const int col1[] = {2, 20};
-  const int col2[] = {3, 30};
-  const int col3[] = {4, 40};
-  const int col4[] = {5, 50};
-
-  matrix.write_column(col0);
-  matrix.write_column(col1);
-  matrix.write_column(col2);
-  matrix.write_column(col3);
-  matrix.write_column(col4);
+  const int second_source[] = {200, 201, 202, 203};
+  matrix.write_column(second_source, std::vector<std::size_t>{0, 2});
 
   CHECK(matrix.head == 2);
-  emg_rt::tests::expect_matrix_eq<int>(matrix, {
-                                                   {3, 4, 5},
-                                                   {30, 40, 50},
-                                               });
-
-  CHECK(matrix.data[0] == 4);
-  CHECK(matrix.data[2] == 5);
-  CHECK(matrix.data[4] == 3);
+  emg_rt::tests::expect_matrix_eq(matrix, {
+                                              {3, 103, 200},
+                                              {30, 101, 202},
+                                          });
 }
 
-TEST_CASE("RingVector insert wraps logical indexing independently of storage") {
+TEST_CASE("RingVector insert preserves logical oldest-to-newest order") {
   emg_rt::RingVector<int> vector(3);
 
-  vector.insert(10);
-  vector.insert(20);
-  vector.insert(30);
-  vector.insert(40);
-  vector.insert(50);
+  vector.insert(1);
+  vector.insert(2);
+  vector.insert(3);
+  emg_rt::tests::expect_vector_eq(vector, {1, 2, 3});
 
-  CHECK(vector.head == 2);
-  CHECK(vector(0) == 30);
-  CHECK(vector(1) == 40);
-  CHECK(vector(2) == 50);
+  vector.insert(4);
+  emg_rt::tests::expect_vector_eq(vector, {2, 3, 4});
+
+  vector.insert(5);
+  emg_rt::tests::expect_vector_eq(vector, {3, 4, 5});
 }

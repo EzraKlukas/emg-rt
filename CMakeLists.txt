@@ -101,5 +101,5 @@ target_link_libraries(emg-rt
 # Tests
 # -----------------------------------------------------------------------------
 
-# enable_testing()
-# add_subdirectory(tests)
+enable_testing()
+add_subdirectory(tests)

@@ -5,222 +5,176 @@
 #include <doctest/doctest.h>
 
 #include <filesystem>
+#include <format>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
 namespace {
 
-std::string base_config_yaml(const std::string &grids_yaml) {
-  return "sampling_frequency: 1000\n"
-         "num_extended_channels: 4\n"
-         "min_lookback_ms: 0\n"
-         "min_lookahead_ms: 0\n"
-         "decomposition_frequency: 1000\n"
-         "demean_window_size: 50\n"
-         "grids:\n" +
-         grids_yaml;
+std::string path_string(const std::filesystem::path &path) {
+  return path.string();
 }
 
-std::string quote_path(const std::filesystem::path &path) {
-  return "\"" + path.string() + "\"";
+std::filesystem::path write_single_grid_config(
+    emg_rt::tests::TempDir &dir, const std::vector<float> &filters,
+    const std::vector<float> &norms, const std::vector<float> &noise,
+    const std::vector<float> &spike,
+    const std::vector<std::size_t> &active_channels = {1, 3}) {
+  const auto filters_path =
+      emg_rt::tests::write_float_bin(dir.path / "filters.bin", filters);
+  const auto norms_path =
+      emg_rt::tests::write_float_bin(dir.path / "norms.bin", norms);
+  const auto noise_path =
+      emg_rt::tests::write_float_bin(dir.path / "noise.bin", noise);
+  const auto spike_path =
+      emg_rt::tests::write_float_bin(dir.path / "spike.bin", spike);
+
+  std::string active = "[";
+  for (std::size_t i = 0; i < active_channels.size(); ++i) {
+    if (i != 0) {
+      active += ", ";
+    }
+    active += std::to_string(active_channels[i]);
+  }
+  active += "]";
+
+  const std::string yaml = std::format(
+      "sampling_frequency: 1000\n"
+      "num_extended_channels: 2\n"
+      "min_lookback_ms: 3\n"
+      "min_lookahead_ms: 1\n"
+      "decomposition_frequency: 500\n"
+      "demean_window_size: 50\n"
+      "grids:\n"
+      "  - grid_id: 7\n"
+      "    active_channels: {}\n"
+      "    samples_onset: [0]\n"
+      "    mu_filters_path: '{}'\n"
+      "    filter_norms_path: '{}'\n"
+      "    noise_centroids_path: '{}'\n"
+      "    spike_centroids_path: '{}'\n",
+      active, path_string(filters_path), path_string(norms_path),
+      path_string(noise_path), path_string(spike_path));
+
+  return emg_rt::tests::write_text_file(dir.path / "config.yaml", yaml);
 }
 
 } // namespace
 
-TEST_CASE("load_online_decomposer parses a single-grid config") {
-  emg_rt::tests::TempDir temp;
-  const auto filters =
-      emg_rt::tests::write_float_bin(temp.path / "filters.bin",
-                                     {1.0F, 0.0F, 0.0F, 2.0F});
-  const auto norms =
-      emg_rt::tests::write_float_bin(temp.path / "norms.bin", {2.0F, 4.0F});
-  const auto centroids = emg_rt::tests::write_float_bin(
-      temp.path / "centroids.bin", {0.1F, 0.2F, 1.1F, 1.2F});
+TEST_CASE("load_online_decomposer loads valid single-grid config") {
+  emg_rt::tests::TempDir dir;
+  const auto config_path =
+      write_single_grid_config(dir, {1.0F, 2.0F}, {2.0F}, {0.0F}, {10.0F});
 
-  const std::string grids_yaml =
-      "  - grid_id: 7\n"
-      "    active_channels: [0, 2]\n"
-      "    samples_onset: [0, 1]\n"
-      "    mu_filters_path: " +
-      quote_path(filters) +
-      "\n"
-      "    filter_norms_path: " +
-      quote_path(norms) +
-      "\n"
-      "    centroids_path: " +
-      quote_path(centroids) + "\n";
-  const auto yaml =
-      emg_rt::tests::write_text_file(temp.path / "config.yaml",
-                                     base_config_yaml(grids_yaml));
-
-  const emg_rt::MultiGridDecomposer decomposer =
-      emg_rt::load_online_decomposer(yaml.string());
+  emg_rt::MultiGridDecomposer decomposer =
+      emg_rt::load_online_decomposer(path_string(config_path));
 
   REQUIRE(decomposer.grids().size() == 1);
-  const auto &config = decomposer.config();
-  CHECK(config.sampling_frequency == doctest::Approx(1000.0F));
-  CHECK(config.decomposition_frequency == doctest::Approx(1000.0F));
-  CHECK(config.samples_per_cycle == 1);
-  CHECK(config.demean_window_size == 50);
-  CHECK(config.tgt_ext_channels == 4);
-
-  const auto &grid = decomposer.grids().front();
-  CHECK(grid.grid_id() == 7);
-  CHECK((grid.active_channels() == std::vector<std::size_t>{0, 2}));
-  CHECK((grid.samples_onset() == std::vector<std::size_t>{0, 1}));
-  CHECK(grid.num_filters() == 2);
-  CHECK(grid.ex_factor() == 1);
-  CHECK(grid.num_extended_channels() == 2);
-  CHECK(grid.inv_filter_norms_view()(0) == doctest::Approx(0.5F));
-  CHECK(grid.inv_filter_norms_view()(1) == doctest::Approx(0.25F));
-  CHECK(grid.noise_centroids_view()(0) == doctest::Approx(0.1F));
-  CHECK(grid.noise_centroids_view()(1) == doctest::Approx(0.2F));
-  CHECK(grid.spike_centroids_view()(0) == doctest::Approx(1.1F));
-  CHECK(grid.spike_centroids_view()(1) == doctest::Approx(1.2F));
-}
-
-TEST_CASE("load_online_decomposer parses structurally separate grids") {
-  emg_rt::tests::TempDir temp;
-  const auto filters0 =
-      emg_rt::tests::write_float_bin(temp.path / "filters0.bin", {1.0F});
-  const auto norms0 =
-      emg_rt::tests::write_float_bin(temp.path / "norms0.bin", {2.0F});
-  const auto noise0 =
-      emg_rt::tests::write_float_bin(temp.path / "noise0.bin", {0.0F});
-  const auto spike0 =
-      emg_rt::tests::write_float_bin(temp.path / "spike0.bin", {1.0F});
-  const auto filters1 =
-      emg_rt::tests::write_float_bin(temp.path / "filters1.bin", {3.0F});
-  const auto norms1 =
-      emg_rt::tests::write_float_bin(temp.path / "norms1.bin", {4.0F});
-  const auto noise1 =
-      emg_rt::tests::write_float_bin(temp.path / "noise1.bin", {0.2F});
-  const auto spike1 =
-      emg_rt::tests::write_float_bin(temp.path / "spike1.bin", {2.0F});
-
-  const std::string grids_yaml =
-      "  - grid_id: 0\n"
-      "    active_channels: [0]\n"
-      "    samples_onset: [0]\n"
-      "    mu_filters_path: " +
-      quote_path(filters0) +
-      "\n"
-      "    filter_norms_path: " +
-      quote_path(norms0) +
-      "\n"
-      "    noise_centroids_path: " +
-      quote_path(noise0) +
-      "\n"
-      "    spike_centroids_path: " +
-      quote_path(spike0) +
-      "\n"
-      "  - grid_id: 1\n"
-      "    active_channels: [1]\n"
-      "    samples_onset: [0]\n"
-      "    mu_filters_path: " +
-      quote_path(filters1) +
-      "\n"
-      "    filter_norms_path: " +
-      quote_path(norms1) +
-      "\n"
-      "    noise_centroids_path: " +
-      quote_path(noise1) +
-      "\n"
-      "    spike_centroids_path: " +
-      quote_path(spike1) + "\n";
-  const auto yaml =
-      emg_rt::tests::write_text_file(temp.path / "config.yaml",
-                                     base_config_yaml(grids_yaml));
-
-  const emg_rt::MultiGridDecomposer decomposer =
-      emg_rt::load_online_decomposer(yaml.string());
-
-  REQUIRE(decomposer.grids().size() == 2);
-  CHECK(decomposer.grids()[0].grid_id() == 0);
-  CHECK((decomposer.grids()[0].active_channels() ==
-         std::vector<std::size_t>{0}));
+  CHECK(decomposer.config().sampling_frequency == 1000);
+  CHECK(decomposer.config().samples_per_cycle == 2);
+  CHECK(decomposer.config().min_lookback_samps == 3);
+  CHECK(decomposer.config().min_lookahead_samps == 1);
+  CHECK(decomposer.grids()[0].grid_id() == 7);
+  CHECK(decomposer.grids()[0].active_channels() ==
+        std::vector<std::size_t>{1, 3});
+  CHECK(decomposer.grids()[0].num_filters() == 1);
+  CHECK(decomposer.grids()[0].ex_factor() == 1);
   CHECK(decomposer.grids()[0].inv_filter_norms_view()(0) ==
         doctest::Approx(0.5F));
-  CHECK(decomposer.grids()[1].grid_id() == 1);
-  CHECK((decomposer.grids()[1].active_channels() ==
-         std::vector<std::size_t>{1}));
-  CHECK(decomposer.grids()[1].inv_filter_norms_view()(0) ==
-        doctest::Approx(0.25F));
+  CHECK(decomposer.grids()[0].acquisition_mask().mask() ==
+        std::vector<std::size_t>{1, 3});
 }
 
-TEST_CASE("load_online_decomposer rejects missing required global fields") {
-  emg_rt::tests::TempDir temp;
-  const auto yaml = emg_rt::tests::write_text_file(
-      temp.path / "config.yaml",
-      "num_extended_channels: 1\n"
-      "min_lookback_ms: 0\n"
-      "min_lookahead_ms: 0\n"
-      "decomposition_frequency: 1000\n"
+TEST_CASE("load_online_decomposer rejects missing required global field") {
+  emg_rt::tests::TempDir dir;
+  const auto config_path = emg_rt::tests::write_text_file(
+      dir.path / "missing.yaml",
+      "sampling_frequency: 1000\n"
+      "num_extended_channels: 2\n"
+      "min_lookback_ms: 3\n"
+      "decomposition_frequency: 500\n"
       "demean_window_size: 50\n"
       "grids: []\n");
 
-  CHECK_THROWS_WITH_AS(emg_rt::load_online_decomposer(yaml.string()),
-                       doctest::Contains("Missing sampling_frequency"),
+  CHECK_THROWS_WITH_AS(emg_rt::load_online_decomposer(path_string(config_path)),
+                       doctest::Contains("Missing min_lookahead_ms"),
                        std::runtime_error);
 }
 
-TEST_CASE("load_online_decomposer rejects invalid per-grid dimensions") {
-  emg_rt::tests::TempDir temp;
-  const auto filters =
-      emg_rt::tests::write_float_bin(temp.path / "filters.bin", {1.0F, 2.0F});
-  const auto norms =
-      emg_rt::tests::write_float_bin(temp.path / "norms.bin", {1.0F, 2.0F});
-  const auto centroids =
-      emg_rt::tests::write_float_bin(temp.path / "centroids.bin", {0.0F});
+TEST_CASE("load_online_decomposer rejects missing config file") {
+  CHECK_THROWS_WITH_AS(
+      emg_rt::load_online_decomposer("/tmp/emg_rt_missing_config.yaml"),
+      doctest::Contains("could not be opened or found"), std::runtime_error);
+}
 
-  const std::string grids_yaml =
-      "  - grid_id: 0\n"
-      "    active_channels: [0]\n"
-      "    samples_onset: [0, 0]\n"
-      "    mu_filters_path: " +
-      quote_path(filters) +
-      "\n"
-      "    filter_norms_path: " +
-      quote_path(norms) +
-      "\n"
-      "    centroids_path: " +
-      quote_path(centroids) + "\n";
-  const auto yaml =
-      emg_rt::tests::write_text_file(temp.path / "config.yaml",
-                                     base_config_yaml(grids_yaml));
+TEST_CASE("load_online_decomposer validates centroid counts") {
+  emg_rt::tests::TempDir dir;
+  const auto config_path =
+      write_single_grid_config(dir, {1.0F, 2.0F}, {2.0F}, {0.0F, 1.0F},
+                               {10.0F});
 
-  CHECK_THROWS_WITH_AS(emg_rt::load_online_decomposer(yaml.string()),
-                       doctest::Contains("centroids size"),
+  CHECK_THROWS_WITH_AS(emg_rt::load_online_decomposer(path_string(config_path)),
+                       doctest::Contains("noise_centroids size does not match"),
                        std::runtime_error);
 }
 
-TEST_CASE("load_online_decomposer rejects empty active channel lists") {
-  emg_rt::tests::TempDir temp;
-  const auto filters =
-      emg_rt::tests::write_float_bin(temp.path / "filters.bin", {1.0F});
-  const auto norms =
-      emg_rt::tests::write_float_bin(temp.path / "norms.bin", {1.0F});
-  const auto centroids =
-      emg_rt::tests::write_float_bin(temp.path / "centroids.bin",
-                                     {0.0F, 1.0F});
+TEST_CASE("load_online_decomposer validates filter shape against active channels") {
+  emg_rt::tests::TempDir dir;
+  const auto config_path =
+      write_single_grid_config(dir, {1.0F, 2.0F, 3.0F}, {2.0F}, {0.0F},
+                               {10.0F});
 
-  const std::string grids_yaml =
+  CHECK_THROWS_WITH_AS(
+      emg_rt::load_online_decomposer(path_string(config_path)),
+      doctest::Contains("num_extended_channels 3 is not divisible"),
+      std::runtime_error);
+}
+
+TEST_CASE("load_online_decomposer offsets acquisition masks for multiple grids") {
+  emg_rt::tests::TempDir dir;
+  const auto f0 = emg_rt::tests::write_float_bin(dir.path / "f0.bin", {1.0F});
+  const auto n0 = emg_rt::tests::write_float_bin(dir.path / "n0.bin", {1.0F});
+  const auto z0 = emg_rt::tests::write_float_bin(dir.path / "z0.bin", {0.0F});
+  const auto s0 = emg_rt::tests::write_float_bin(dir.path / "s0.bin", {5.0F});
+  const auto f1 = emg_rt::tests::write_float_bin(dir.path / "f1.bin", {2.0F});
+  const auto n1 = emg_rt::tests::write_float_bin(dir.path / "n1.bin", {2.0F});
+  const auto z1 = emg_rt::tests::write_float_bin(dir.path / "z1.bin", {0.0F});
+  const auto s1 = emg_rt::tests::write_float_bin(dir.path / "s1.bin", {6.0F});
+
+  const std::string yaml = std::format(
+      "sampling_frequency: 1000\n"
+      "num_extended_channels: 1\n"
+      "min_lookback_ms: 3\n"
+      "min_lookahead_ms: 1\n"
+      "decomposition_frequency: 500\n"
+      "demean_window_size: 50\n"
+      "grids:\n"
       "  - grid_id: 0\n"
-      "    active_channels: []\n"
+      "    active_channels: [2]\n"
       "    samples_onset: [0]\n"
-      "    mu_filters_path: " +
-      quote_path(filters) +
-      "\n"
-      "    filter_norms_path: " +
-      quote_path(norms) +
-      "\n"
-      "    centroids_path: " +
-      quote_path(centroids) + "\n";
-  const auto yaml =
-      emg_rt::tests::write_text_file(temp.path / "config.yaml",
-                                     base_config_yaml(grids_yaml));
+      "    mu_filters_path: '{}'\n"
+      "    filter_norms_path: '{}'\n"
+      "    noise_centroids_path: '{}'\n"
+      "    spike_centroids_path: '{}'\n"
+      "  - grid_id: 1\n"
+      "    active_channels: [1]\n"
+      "    samples_onset: [0]\n"
+      "    mu_filters_path: '{}'\n"
+      "    filter_norms_path: '{}'\n"
+      "    noise_centroids_path: '{}'\n"
+      "    spike_centroids_path: '{}'\n",
+      path_string(f0), path_string(n0), path_string(z0), path_string(s0),
+      path_string(f1), path_string(n1), path_string(z1), path_string(s1));
+  const auto config_path =
+      emg_rt::tests::write_text_file(dir.path / "multi.yaml", yaml);
 
-  CHECK_THROWS_WITH_AS(emg_rt::load_online_decomposer(yaml.string()),
-                       doctest::Contains("has no active channels"),
-                       std::runtime_error);
+  emg_rt::MultiGridDecomposer decomposer =
+      emg_rt::load_online_decomposer(path_string(config_path));
+
+  REQUIRE(decomposer.grids().size() == 2);
+  CHECK(decomposer.grids()[0].acquisition_mask().mask() ==
+        std::vector<std::size_t>{2});
+  CHECK(decomposer.grids()[1].acquisition_mask().mask() ==
+        std::vector<std::size_t>{65});
 }
