@@ -46,7 +46,8 @@ TEST_CASE("get_pulse_train uses MatrixView filter rows as motor units") {
   CHECK(pulse(0, 1) == doctest::Approx(2916.0F));
 }
 
-TEST_CASE("get_pulse_train applies each filter's inverse norm to every sample") {
+TEST_CASE(
+    "get_pulse_train applies each filter's inverse norm to every sample") {
   auto emg = emg_rt::tests::matrix_from_rows<float>({
       {2.0F, 3.0F},
   });

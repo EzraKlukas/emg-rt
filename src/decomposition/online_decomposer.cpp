@@ -29,9 +29,9 @@
  *       4. find candidate local maxima
  *       5. classify candidate maxima as discharges or non-discharges
  *
- *   - `GridWorkspace::advance_output_heads` advances the circular output buffers
- *     after each cycle so pulse trains, spike masks, and discharge masks remain
- *     aligned.
+ *   - `GridWorkspace::advance_output_heads` advances the circular output
+ * buffers after each cycle so pulse trains, spike masks, and discharge masks
+ * remain aligned.
  *
  * `init_pulse_hist` runs the early pipeline stages before enough lookback
  * history is available to make valid discharge decisions. Once sufficient
